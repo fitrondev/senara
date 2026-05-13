@@ -1,0 +1,29 @@
+{
+  "name": "@senara/api",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@clerk/backend": "^3.2.1",
+    "@orpc/client": "^1.13.14",
+    "@orpc/openapi": "^1.13.14",
+    "@orpc/server": "^1.13.14",
+    "@orpc/zod": "^1.13.14",
+    "@senara/db": "*",
+    "@senara/env": "*",
+    "dotenv": "^17.2.2",
+    "next": "^16.2.0",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@senara/config": "*",
+    "typescript": "^6"
+  }
+}
