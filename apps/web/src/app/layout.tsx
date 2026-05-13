@@ -2,19 +2,15 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 
 import "../index.css";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
+import { cn } from "@senara/ui/lib/utils";
 
 import Header from "@/components/header";
 import Providers from "@/components/providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
@@ -28,15 +24,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="id" suppressHydrationWarning>
+      <body className={cn("antialiased", inter.variable)}>
         <ClerkProvider>
-          <Providers>
-            <div className="grid grid-rows-[auto_1fr] h-svh">
-              <Header />
-              {children}
-            </div>
-          </Providers>
+          <Providers>{children}</Providers>
         </ClerkProvider>
       </body>
     </html>
