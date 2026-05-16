@@ -9,7 +9,7 @@ import { SignInButton, Show } from "@clerk/nextjs";
 
 const Header = () => {
   return (
-    <header className="sticky top-0 z-50 border-b bg-background">
+    <header className="sticky top-0 z-50 border-b bg-background/30 backdrop-blur-xs">
       <div className="container h-16 flex items-center justify-between">
         <Logo />
 
