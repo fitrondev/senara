@@ -5,8 +5,8 @@ import "../index.css";
 import { Inter } from "next/font/google";
 import { cn } from "@senara/ui/lib/utils";
 
-import Header from "@/components/header";
 import Providers from "@/components/providers";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,7 +27,9 @@ export default function RootLayout({
     <html lang="id" suppressHydrationWarning>
       <body className={cn("antialiased", inter.variable)}>
         <ClerkProvider>
-          <Providers>{children}</Providers>
+          <Providers>
+            <TooltipProvider>{children}</TooltipProvider>
+          </Providers>
         </ClerkProvider>
       </body>
     </html>
