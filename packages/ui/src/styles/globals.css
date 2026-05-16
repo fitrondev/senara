@@ -129,9 +129,33 @@
     @apply font-sans;
   }
   .container {
-    @apply w-full max-w-7xl mx-auto px-4 lg:px-0;
+    @apply w-full max-w-7xl mx-auto px-4;
   }
-  button:not(:disabled), [role="button"]:not(:disabled) {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .hero-float {
+    animation: hero-float 6s ease-in-out infinite;
+  }
+
+  @keyframes hero-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-float {
+      animation: none;
+    }
   }
 }
