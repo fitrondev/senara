@@ -6,7 +6,7 @@ import { Inter } from "next/font/google";
 import { cn } from "@senara/ui/lib/utils";
 
 import Providers from "@/components/providers";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@senara/ui/components/tooltip";
 
 const inter = Inter({
   subsets: ["latin"],
