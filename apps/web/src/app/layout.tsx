@@ -7,6 +7,7 @@ import { cn } from "@senara/ui/lib/utils";
 
 import Providers from "@/components/providers";
 import { TooltipProvider } from "@senara/ui/components/tooltip";
+import { idID } from "@clerk/localizations";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <body className={cn("antialiased", inter.variable)}>
-        <ClerkProvider>
+        <ClerkProvider localization={idID}>
           <Providers>
             <TooltipProvider>{children}</TooltipProvider>
           </Providers>
