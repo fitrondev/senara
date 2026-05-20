@@ -41,6 +41,8 @@ npm run db:push
 - Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in `apps/web/.env`
 - Set `CLERK_SECRET_KEY` in `apps/web/.env` for Clerk server middleware and server-side Clerk auth
 - Set `CLERK_PUBLISHABLE_KEY` in `apps/web/.env` for server-side Clerk request verification
+- Set `CLERK_WEBHOOK_SIGNING_SECRET` in `apps/web/.env` for Clerk webhook verification
+- Point the Clerk webhook endpoint at `/api/webhooks/clerk`
 
 Then, run the development server:
 
