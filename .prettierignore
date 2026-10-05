@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+**/node_modules/**
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+**/dist/**
+build/
+**/build/**
+.next/
+**/.next/**
+out/
+**/out/**
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Turbo & Cache
+.turbo/
+**/.turbo/**
+.cache/
+**/.cache/**
+.nx/
+**/.nx/**
+
+# Prisma & Generated files
+**/prisma/generated/**
+apps/web/src/routeTree.gen.ts
+**/routeTree.gen.ts
+**/next-env.d.ts
+**/src/env.ts
+local.db*
+**/local.db*
+
+# Lockfiles
+bun.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment files
+.env*
+**/.env*
+
+# Logs
+logs/
+**/logs/**
+*.log
+**/*.log
+
+# Coverage
+coverage/
+**/coverage/**
+.nyc_output/
+**/.nyc_output/**

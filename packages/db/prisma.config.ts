@@ -1,5 +1,4 @@
 import path from "node:path";
-
 import { defineConfig, env } from "prisma/config";
 import "varlock/auto-load";
 

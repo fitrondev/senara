@@ -1,6 +1,8 @@
-import { appRouter } from "@senara/api/routers/index";
-import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { NextRequest } from "next/server";
+
+import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+
+import { appRouter } from "@senara/api/routers/index";
 
 import { createContext } from "../../../../context";
 

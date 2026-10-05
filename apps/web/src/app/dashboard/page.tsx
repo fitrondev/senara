@@ -7,7 +7,9 @@ import { trpc } from "@/utils/trpc";
 
 export default function Dashboard() {
   const user = useUser();
-  const nameFromParts = [user.user?.firstName, user.user?.lastName].filter(Boolean).join(" ");
+  const nameFromParts = [user.user?.firstName, user.user?.lastName]
+    .filter(Boolean)
+    .join(" ");
   const displayName =
     user.user?.fullName ||
     nameFromParts ||

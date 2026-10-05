@@ -1,8 +1,9 @@
-import type { AppRouter } from "@senara/api/routers/index";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
+
+import type { AppRouter } from "@senara/api/routers/index";
 
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 

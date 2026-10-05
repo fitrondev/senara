@@ -1,4 +1,5 @@
 import type { SessionAuthObject } from "@clerk/backend";
+
 import type { Database } from "@senara/db";
 
 export type Context = {
