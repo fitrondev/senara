@@ -7,11 +7,12 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "db:push": "prisma db push",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:migrate:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "env:generate": "bun --bun varlock codegen",
+    "db:push": "bun --bun prisma db push",
+    "db:generate": "bun --bun prisma generate",
+    "db:migrate": "bun --bun prisma migrate dev",
+    "db:migrate:deploy": "bun --bun prisma migrate deploy",
+    "db:studio": "bun --bun prisma studio"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.10.0",

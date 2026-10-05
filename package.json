@@ -36,8 +36,8 @@
     "db:studio": "turbo run db:studio -F @senara/db --",
     "db:generate": "turbo run db:generate -F @senara/db --",
     "db:migrate": "turbo run db:migrate -F @senara/db --",
-    "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./packages/db/",
-    "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./packages/db/"
+    "env:generate": "bun --bun varlock codegen --path ./apps/web/ && bun --bun varlock codegen --path ./packages/db/",
+    "postinstall": "bun --bun varlock codegen --path ./apps/web/ && bun --bun varlock codegen --path ./packages/db/"
   },
   "dependencies": {
     "zod": "catalog:"
