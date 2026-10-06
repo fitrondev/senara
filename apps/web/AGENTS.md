@@ -15,7 +15,9 @@ Selamat datang di modul frontend **Senara** (`apps/web`). Dokumen ini berisi ins
 ---
 
 ## 🎯 Identitas & Tanggung Jawab Paket `apps/web`
+
 Paket ini adalah aplikasi utama berbasis **Next.js 16 (App Router) + React 19** yang menangani:
+
 - Halaman publik (Landing Page, Galeri Template, Halaman Undangan Tamu `/[slug]`).
 - Halaman aplikasi terotentikasi (`/dashboard/*`).
 - Editor visual interaktif (`/editor/[invitationId]`).
@@ -25,6 +27,7 @@ Paket ini adalah aplikasi utama berbasis **Next.js 16 (App Router) + React 19** 
 ---
 
 ## 🛡️ Batasan Arsitektur Penting
+
 1. **Jangan Impor `@senara/db` Langsung:**  
    Semua data dari basis data harus diambil melalui tRPC client (`trpc.[router].[procedure].useQuery` atau `useMutation`).
 2. **Gunakan Komponen `@senara/ui`:**  
@@ -37,7 +40,9 @@ Paket ini adalah aplikasi utama berbasis **Next.js 16 (App Router) + React 19** 
 ---
 
 ## 📚 Referensi Dokumentasi Lengkap
+
 Untuk spesifikasi fitur, arsitektur, dan koding standar:
+
 - [PRD Utama](../../docs/PRD.md)
 - [Arsitektur Sistem](../../docs/ARCHITECTURE.md)
 - [Petunjuk Agen Global](../../docs/AGENT.md)

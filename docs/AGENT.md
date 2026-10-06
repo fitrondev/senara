@@ -51,7 +51,14 @@ Sebelum mengambil keputusan arsitektur atau menulis kode baru, selalu rujuk doku
   ```
 - Jangan pernah mengizinkan pengguna memutasi atau menghapus undangan milik pengguna lain.
 
-### 4. Siklus Eksekusi & Verifikasi Wajib
+### 4. Kepatuhan Vercel React Best Practices
+- **Eliminasi Waterfall:** Hindari `await` berurutan yang independen; gunakan `Promise.all()` atau `<Suspense>`.
+- **RSC by Default:** Pertahankan layout dan container sebagai Server Component; dorong `"use client"` ke leaf nodes interaktif terendah.
+- **Hoist Static Data:** Hoist array/objek statis (seperti link navigasi, konfigurasi font) ke tingkat modul di luar fungsi render.
+- **Conditional Rendering:** Gunakan operator ternary (`condition ? <Component /> : null`), hindari `condition && <Component />`.
+- **Bundle Optimization:** Hindari barrel imports masif dan muat modul devtools/analitik secara kondisional.
+
+### 5. Siklus Eksekusi & Verifikasi Wajib
 Setiap kali menyelesaikan tugas atau memodifikasi berkas kode:
 1. Pastikan kode tidak memutus fungsi yang sudah ada.
 2. Jalankan pemeriksaan tipe terminal:

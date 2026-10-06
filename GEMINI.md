@@ -23,3 +23,4 @@ Panduan ini merujuk secara terpusat ke dokumentasi teknis di direktori `docs/`:
 4. **Pencegahan IDOR:** Selalu validasi `userId: ctx.auth.userId` pada setiap mutasi data pengguna.
 5. **Vercel React Best Practices:** Gunakan Server Components secara bawaan, dorong `"use client"` ke leaf node terendah, hoist objek statis, dan eliminasi waterfall data fetching.
 6. **Verifikasi:** Selalu jalankan `bun run check-types` setelah melakukan modifikasi kode.
+

@@ -167,8 +167,35 @@ export const invitationRouter = router({
 
 ### 5.2 Pemilihan Kode Error tRPC
 - `UNAUTHORIZED`: Pengguna belum login atau token sesi kedaluwarsa.
-- `FORBIDDEN`: Pengguna login mencoba mengakses resource yang bukan miliknya.
+- `FORBIDDEN`: Pengguna login trivial mencoba mengakses resource yang bukan miliknya.
 - `NOT_FOUND`: Data yang diminta tidak ditemukan di database.
 - `BAD_REQUEST`: Payload gagal validasi bisnis.
 - `CONFLICT`: Pelanggaran constraint unik (misal: slug ganda).
+
+---
+
+## 6. Standar Performa Vercel (Vercel React Best Practices)
+
+Seluruh komponen React dan halaman Next.js wajib mematuhi 8 pilar performa dari Vercel Engineering:
+
+### 6.1 Menghilangkan Waterfall (Eliminating Waterfalls - CRITICAL)
+- **`async-parallel`:** Gunakan `Promise.all()` untuk pemanggilan data independen, hindari `await` berurutan yang saling menunggu tanpa ketergantungan.
+- **`async-cheap-condition-before-await`:** Periksa kondisi sinkron sederhana sebelum menunggu remote fetch / database query.
+- **`async-suspense-boundaries`:** Gunakan `<Suspense>` untuk streaming konten lambat secara bertahap daripada memblokir keseluruhan halaman.
+
+### 6.2 Optimasi Ukuran Bundle (Bundle Size Optimization - CRITICAL)
+- **`bundle-barrel-imports`:** Impor langsung dari modul spesifik, hindari mengimpor dari *barrel file* masif yang dapat menggelembungkan bundle.
+- **`bundle-dynamic-imports`:** Gunakan `next/dynamic` untuk komponen berat yang hanya muncul saat interaksi (misal: modal editor kompleks, date picker besar).
+- **`bundle-defer-third-party`:** Tunda pustaka analitik atau devtools (hanya muat `ReactQueryDevtools` di lingkungan `development`).
+
+### 6.3 Performa Server-Side (Server-Side Performance - HIGH)
+- **`server-hoist-static-io`:** Hoist objek/array konstan (navigasi, teks statis, konfigurasi font) ke tingkat modul di luar fungsi render komponen.
+- **`server-serialization`:** Minimalkan payload yang dioper dari Server Component ke Client Component (jangan mengoper seluruh objek database jika klien hanya butuh 2 field).
+- **Push Client Boundaries Down:** Pertahankan layout dan kontainer sebagai Server Component, dan jadikan hanya leaf nodes interaktif sebagai `"use client"`.
+
+### 6.4 Optimasi Re-render & Rendering (MEDIUM)
+- **`rendering-conditional-render`:** Gunakan operator ternary (`condition ? <Component /> : null`), hindari `condition && <Component />` yang berisiko merender nilai `0` atau `false` ke DOM.
+- **`rerender-functional-setstate`:** Gunakan functional update `setState((prev) => ...)` untuk menghindari dependensi closure yang tidak stabil.
+- **`rerender-no-inline-components`:** Dilarang mendeklarasikan komponen React di dalam fungsi render komponen lain.
+
 
