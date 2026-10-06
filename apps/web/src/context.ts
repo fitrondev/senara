@@ -15,7 +15,7 @@ function toClerkContextAuth(auth: ClerkContextAuth): ClerkContextAuth {
 
 const clerkClient = createClerkClient({
   secretKey: ENV.CLERK_SECRET_KEY,
-  publishableKey: ENV.CLERK_PUBLISHABLE_KEY,
+  publishableKey: ENV.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
 });
 
 async function authenticateClerkRequest(
