@@ -10,7 +10,19 @@ export const invitationRouter = router({
       where: {
         userId: ctx.auth.userId,
       },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        templateId: true,
+        title: true,
+        slug: true,
+        status: true,
+        packageTier: true,
+        eventDate: true,
+        coverImageUrl: true,
+        publishedAt: true,
+        createdAt: true,
+        updatedAt: true,
         template: {
           select: {
             id: true,
@@ -232,13 +244,12 @@ export const invitationRouter = router({
             })),
           },
         },
-        include: {
-          template: true,
-          sections: {
-            orderBy: {
-              sortOrder: "asc",
-            },
-          },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          templateId: true,
+          status: true,
         },
       });
     }),
@@ -312,6 +323,20 @@ export const invitationRouter = router({
           ...(input.musicTitle !== undefined ? { musicTitle: input.musicTitle } : {}),
           ...(typeof input.isMusicAutoplay === "boolean" ? { isMusicAutoplay: input.isMusicAutoplay } : {}),
           ...(input.coverImageUrl !== undefined ? { coverImageUrl: input.coverImageUrl } : {}),
+        },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          status: true,
+          packageTier: true,
+          eventDate: true,
+          musicUrl: true,
+          musicTitle: true,
+          isMusicAutoplay: true,
+          coverImageUrl: true,
+          publishedAt: true,
+          updatedAt: true,
         },
       });
     }),
@@ -421,13 +446,10 @@ export const invitationRouter = router({
             })),
           },
         },
-        include: {
-          template: true,
-          sections: {
-            orderBy: {
-              sortOrder: "asc",
-            },
-          },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
         },
       });
     }),

@@ -1,9 +1,14 @@
-const HomeLayout = ({
+import Header from "@/components/header";
+
+export default function HomeLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-}>) => {
-  return <>{children}</>;
-};
-
-export default HomeLayout;
+}>) {
+  return (
+    <div className="grid min-h-svh grid-rows-[auto_1fr]">
+      <Header />
+      {children}
+    </div>
+  );
+}

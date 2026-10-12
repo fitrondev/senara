@@ -1,6 +1,6 @@
 # 📝 Backlog Tugas Vibe Coding Senara
 
-Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang dirancang khusus untuk sesi **vibe coding**. Setiap tugas memiliki cakupan yang terisolasi, file target yang jelas, dan kriteria penyelesaian (*Definition of Done*) yang terukur.
+Dokumen ini adalah daftar tugas terperinci (_bite-sized development tasks_) yang dirancang khusus untuk sesi **vibe coding**. Setiap tugas memiliki cakupan yang terisolasi, file target yang jelas, dan kriteria penyelesaian (_Definition of Done_) yang terukur.
 
 ---
 
@@ -28,7 +28,7 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
 
 - [x] **Task 1.3 — Script Seeding Master Template & Kategori**
   - **Berkas Target:** `packages/db/src/seed.ts`, `packages/db/package.json`
-  - **Deskripsi:** Membuat script seeder untuk menyisipkan minimal 3 template master awal (*Kartu Pos Vintage*, *Minimalis Elegan*, *Floral Romance*) lengkap dengan konfigurasi section bawaan.
+  - **Deskripsi:** Membuat script seeder untuk menyisipkan minimal 3 template master awal (_Kartu Pos Vintage_, _Minimalis Elegan_, _Floral Romance_) lengkap dengan konfigurasi section bawaan.
   - **DoD:** `bun --filter @senara/db run db:seed` berhasil mengisi tabel `Template`.
 
 ---
@@ -77,17 +77,17 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
 
 ## 🖥️ Epic 3: Dashboard Pengguna (`apps/web`)
 
-- [ ] **Task 3.1 — Desain Layout & Sidebar Dashboard**
+- [x] **Task 3.1 — Desain Layout & Sidebar Dashboard**
   - **Berkas Target:** `apps/web/src/app/dashboard/layout.tsx`, `apps/web/src/components/dashboard-sidebar.tsx`
   - **Deskripsi:** Membuat sidebar responsif dengan navigasi lengkap (Undangan Saya, Kirim WhatsApp, RSVP, Statistik, Tagihan, Akun, Konsultasi).
   - **DoD:** Active link state berjalan mulus dan responsif di mode mobile (drawer sheet).
 
-- [ ] **Task 3.2 — Komponen Kartu Undangan (Invitation Card)**
+- [x] **Task 3.2 — Komponen Kartu Undangan (Invitation Card)**
   - **Berkas Target:** `apps/web/src/components/invitation-card.tsx`
   - **Deskripsi:** Menampilkan thumbnail, badge status (Draf/Terbit), sisa masa aktif draf gratis, tombol Edit, Terbitkan, dan dropdown aksi lanjutan (Duplikat, Hapus, Bagikan).
   - **DoD:** Dialog konfirmasi hapus berfungsi dengan aman.
 
-- [ ] **Task 3.3 — Halaman Galeri Pemilihan Template Baru**
+- [x] **Task 3.3 — Halaman Galeri Pemilihan Template Baru**
   - **Berkas Target:** `apps/web/src/app/dashboard/templates/page.tsx`
   - **Deskripsi:** Filter kategori acara, kartu template dengan modal live preview, dan tombol `Gunakan Template Ini` yang mengarahkan ke editor.
   - **DoD:** Mengklik template berhasil memicu mutasi `invitation.createFromTemplate` dan redirect ke `/editor/[id]`.
@@ -113,7 +113,7 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
 
 - [ ] **Task 4.4 — Modal Manajemen Urutan & Visibilitas Section**
   - **Berkas Target:** `apps/web/src/components/editor/section-reorder-modal.tsx`
-  - **Deskripsi:** Antarmuka daftar section dengan tombol geser urutan (*reorder*) dan sakelar toggle *show/hide* per section opsional.
+  - **Deskripsi:** Antarmuka daftar section dengan tombol geser urutan (_reorder_) dan sakelar toggle _show/hide_ per section opsional.
   - **DoD:** Mengubah urutan dan toggle langsung memicu mutasi batch dan memperbarui tampilan kanvas.
 
 ---
@@ -122,7 +122,7 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
 
 - [ ] **Task 5.1 — Modal & Pemilih Slot "Isian Kamu"**
   - **Berkas Target:** `apps/web/src/components/editor/custom-content-modal.tsx`
-  - **Deskripsi:** Antarmuka modal sesuai PRD Bab 13: dropdown pilihan *Muncul setelah*, keterangan persistent slot, indikator posisi (*contoh: 2/4*), dan tombol panah `↑ Naik` / `↓ Turun`.
+  - **Deskripsi:** Antarmuka modal sesuai PRD Bab 13: dropdown pilihan _Muncul setelah_, keterangan persistent slot, indikator posisi (_contoh: 2/4_), dan tombol panah `↑ Naik` / `↓ Turun`.
   - **DoD:** Pemilihan slot dinamis terikat pada `slotId` yang valid.
 
 - [ ] **Task 5.2 — Form Input untuk 8 Tipe Konten**
@@ -133,7 +133,7 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
 - [ ] **Task 5.3 — Aturan Persistent Slot & Hapus Bersih**
   - **Berkas Target:** `apps/web/src/components/editor/custom-content-modal.tsx`
   - **Deskripsi:** Tombol hapus satuan dan tombol `Hapus Seluruh Isian di Slot Ini` dengan modal konfirmasi protektif.
-  - **DoD:** Jika section induk disembunyikan, isian tetap tampil di slot yang telah ditentukan (*persistent*).
+  - **DoD:** Jika section induk disembunyikan, isian tetap tampil di slot yang telah ditentukan (_persistent_).
 
 ---
 
@@ -141,7 +141,7 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
 
 - [ ] **Task 6.1 — Layar Gerbang Sampul & Kepatuhan Audio Autoplay (Cover Gate)**
   - **Berkas Target:** `apps/web/src/components/invitation/cover-gate.tsx`
-  - **Deskripsi:** Sampul pembuka layar penuh yang menampilkan nama acara, teks personalisasi tamu (*Kepada Yth. [Nama]*), dan tombol interaktif `✉ Buka Undangan`.
+  - **Deskripsi:** Sampul pembuka layar penuh yang menampilkan nama acara, teks personalisasi tamu (_Kepada Yth. [Nama]_), dan tombol interaktif `✉ Buka Undangan`.
   - **DoD:** Mengklik tombol sukses memicu pemutaran audio latar (bebas blokir browser), membuka kunci scroll, dan memunculkan floating audio controller.
 
 - [ ] **Task 6.2 — Modul Rincian Acara, Peta & Hitung Mundur (Countdown)**
@@ -218,4 +218,3 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
     bun run build
     ```
   - **DoD:** Seluruh paket monorepo berhasil di-build tanpa galat TypeScript atau peringatan build kritis.
-
