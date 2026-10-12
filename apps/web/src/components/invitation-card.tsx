@@ -260,6 +260,22 @@ export function InvitationCard({ invitation, onRefresh }: InvitationCardProps) {
                   )}
 
                   <DropdownMenuItem
+                    render={<Link href={`/dashboard/guests/${invitation.id}` as Route} />}
+                    className="gap-2"
+                  >
+                    <Users className="size-4" />
+                    <span>Manajemen Tamu (WA)</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    render={<Link href={`/dashboard/stats/${invitation.id}` as Route} />}
+                    className="gap-2"
+                  >
+                    <ExternalLink className="size-4" />
+                    <span>Statistik Kunjungan</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
                     onClick={() => duplicateMutation.mutate({ id: invitation.id })}
                     disabled={duplicateMutation.isPending}
                     className="gap-2"

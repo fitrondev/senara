@@ -125,7 +125,7 @@ export const customContentRouter = router({
         targetOrder = lastItem ? lastItem.sortOrder + 1 : 0;
       }
 
-      return ctx.db.invitationCustomContent.create({
+      const created = await ctx.db.invitationCustomContent.create({
         data: {
           invitationId: input.invitationId,
           slotId: input.slotId,
@@ -134,7 +134,20 @@ export const customContentRouter = router({
           content: validatedPayload as Prisma.InputJsonValue,
           isVisible: input.isVisible,
         },
+        select: {
+          id: true,
+          invitationId: true,
+          slotId: true,
+          type: true,
+          sortOrder: true,
+          isVisible: true,
+        },
       });
+
+      return {
+        ...created,
+        content: validatedPayload,
+      };
     }),
 
   update: protectedProcedure
@@ -181,7 +194,7 @@ export const customContentRouter = router({
         validatedPayload = validateContentPayload(existingItem.type, input.content);
       }
 
-      return ctx.db.invitationCustomContent.update({
+      const updated = await ctx.db.invitationCustomContent.update({
         where: {
           id: input.id,
         },
@@ -190,7 +203,20 @@ export const customContentRouter = router({
           ...(typeof input.isVisible === "boolean" ? { isVisible: input.isVisible } : {}),
           ...(typeof input.sortOrder === "number" ? { sortOrder: input.sortOrder } : {}),
         },
+        select: {
+          id: true,
+          invitationId: true,
+          slotId: true,
+          type: true,
+          sortOrder: true,
+          isVisible: true,
+        },
       });
+
+      return {
+        ...updated,
+        content: validatedPayload ?? (existingItem.content as Record<string, unknown>),
+      };
     }),
 
   reorder: protectedProcedure

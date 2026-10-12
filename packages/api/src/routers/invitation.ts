@@ -59,32 +59,115 @@ export const invitationRouter = router({
           id: input.id,
           userId: ctx.auth.userId,
         },
-        include: {
-          template: true,
+        select: {
+          id: true,
+          userId: true,
+          templateId: true,
+          title: true,
+          slug: true,
+          status: true,
+          packageTier: true,
+          eventDate: true,
+          themeConfig: true,
+          musicUrl: true,
+          musicTitle: true,
+          isMusicAutoplay: true,
+          coverImageUrl: true,
+          publishedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          template: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              category: true,
+              thumbnail: true,
+              isPremium: true,
+            },
+          },
           sections: {
             orderBy: {
               sortOrder: "asc",
+            },
+            select: {
+              id: true,
+              invitationId: true,
+              sectionKey: true,
+              title: true,
+              sortOrder: true,
+              isVisible: true,
+              isLocked: true,
             },
           },
           customContents: {
             orderBy: {
               sortOrder: "asc",
             },
+            select: {
+              id: true,
+              invitationId: true,
+              slotId: true,
+              type: true,
+              content: true,
+              sortOrder: true,
+              isVisible: true,
+            },
           },
           schedules: {
             orderBy: {
               date: "asc",
             },
+            select: {
+              id: true,
+              invitationId: true,
+              title: true,
+              date: true,
+              startTime: true,
+              endTime: true,
+              timezone: true,
+              venueName: true,
+              address: true,
+              mapsUrl: true,
+              latitude: true,
+              longitude: true,
+            },
           },
-          bankAccounts: true,
+          bankAccounts: {
+            select: {
+              id: true,
+              invitationId: true,
+              bankName: true,
+              accountNo: true,
+              accountName: true,
+              qrisImageUrl: true,
+            },
+          },
           galleries: {
             orderBy: {
               sortOrder: "asc",
+            },
+            select: {
+              id: true,
+              invitationId: true,
+              mediaUrl: true,
+              mediaType: true,
+              caption: true,
+              sortOrder: true,
             },
           },
           loveStories: {
             orderBy: {
               sortOrder: "asc",
+            },
+            select: {
+              id: true,
+              invitationId: true,
+              yearOrDate: true,
+              title: true,
+              story: true,
+              imageUrl: true,
+              sortOrder: true,
             },
           },
           _count: {
@@ -104,7 +187,10 @@ export const invitationRouter = router({
         });
       }
 
-      return invitation;
+      return {
+        ...invitation,
+        themeConfig: (invitation.themeConfig as Record<string, unknown> | null) ?? null,
+      };
     }),
 
   getBySlugPublic: publicProcedure
@@ -118,14 +204,41 @@ export const invitationRouter = router({
         where: {
           slug: input.slug,
         },
-        include: {
-          template: true,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          eventDate: true,
+          coverImageUrl: true,
+          musicUrl: true,
+          themeConfig: true,
+          status: true,
+          templateId: true,
+          template: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              category: true,
+              thumbnail: true,
+              isPremium: true,
+            },
+          },
           sections: {
             where: {
               isVisible: true,
             },
             orderBy: {
               sortOrder: "asc",
+            },
+            select: {
+              id: true,
+              invitationId: true,
+              sectionKey: true,
+              title: true,
+              sortOrder: true,
+              isVisible: true,
+              isLocked: true,
             },
           },
           customContents: {
@@ -135,21 +248,70 @@ export const invitationRouter = router({
             orderBy: {
               sortOrder: "asc",
             },
+            select: {
+              id: true,
+              invitationId: true,
+              slotId: true,
+              type: true,
+              content: true,
+              sortOrder: true,
+              isVisible: true,
+            },
           },
           schedules: {
             orderBy: {
               date: "asc",
             },
+            select: {
+              id: true,
+              invitationId: true,
+              title: true,
+              date: true,
+              startTime: true,
+              endTime: true,
+              timezone: true,
+              venueName: true,
+              address: true,
+              mapsUrl: true,
+              latitude: true,
+              longitude: true,
+            },
           },
-          bankAccounts: true,
+          bankAccounts: {
+            select: {
+              id: true,
+              invitationId: true,
+              bankName: true,
+              accountNo: true,
+              accountName: true,
+              qrisImageUrl: true,
+            },
+          },
           galleries: {
             orderBy: {
               sortOrder: "asc",
+            },
+            select: {
+              id: true,
+              invitationId: true,
+              mediaUrl: true,
+              mediaType: true,
+              caption: true,
+              sortOrder: true,
             },
           },
           loveStories: {
             orderBy: {
               sortOrder: "asc",
+            },
+            select: {
+              id: true,
+              invitationId: true,
+              yearOrDate: true,
+              title: true,
+              story: true,
+              imageUrl: true,
+              sortOrder: true,
             },
           },
         },
@@ -162,7 +324,10 @@ export const invitationRouter = router({
         });
       }
 
-      return invitation;
+      return {
+        ...invitation,
+        themeConfig: (invitation.themeConfig as Record<string, unknown> | null) ?? null,
+      };
     }),
 
   createFromTemplate: protectedProcedure

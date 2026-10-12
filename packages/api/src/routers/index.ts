@@ -1,7 +1,9 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+import { analyticsRouter } from "./analytics";
 import { customContentRouter } from "./custom-content";
 import { guestRouter } from "./guest";
 import { invitationRouter } from "./invitation";
+import { orderRouter } from "./order";
 import { rsvpRouter } from "./rsvp";
 import { sectionRouter } from "./section";
 import { templateRouter } from "./template";
@@ -22,6 +24,8 @@ export const appRouter = router({
   customContent: customContentRouter,
   guest: guestRouter,
   rsvp: rsvpRouter,
+  order: orderRouter,
+  analytics: analyticsRouter,
 });
 
 export type AppRouter = typeof appRouter;
