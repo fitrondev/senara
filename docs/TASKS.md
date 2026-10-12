@@ -35,14 +35,14 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
 
 ## ⚡ Epic 2: Lapisan Router tRPC (`packages/api`)
 
-- [ ] **Task 2.1 — Router Template & Kategori (`template.ts`)**
+- [x] **Task 2.1 — Router Template & Kategori (`template.ts`)**
   - **Berkas Target:** `packages/api/src/routers/template.ts`
   - **Prosedur:**
     - `template.getAll` (Query publik dengan filter kategori).
     - `template.getBySlug` (Query publik untuk live preview).
   - **DoD:** Terdaftar di `appRouter` dan lulus pemeriksaan tipe.
 
-- [ ] **Task 2.2 — Router Undangan Pengguna (`invitation.ts`)**
+- [x] **Task 2.2 — Router Undangan Pengguna (`invitation.ts`)**
   - **Berkas Target:** `packages/api/src/routers/invitation.ts`
   - **Prosedur:**
     - `invitation.getMyInvitations` (Query protected daftar undangan milik user).
@@ -53,7 +53,7 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
     - `invitation.delete` (Mutasi protected menghapus undangan dengan verifikasi kepemilikan).
   - **DoD:** Memiliki proteksi IDOR (`where: { id, userId: ctx.auth.userId }`).
 
-- [ ] **Task 2.3 — Router Section & Fitur "Isian Kamu" (`section.ts` & `custom-content.ts`)**
+- [x] **Task 2.3 — Router Section & Fitur "Isian Kamu" (`section.ts` & `custom-content.ts`)**
   - **Berkas Target:** `packages/api/src/routers/section.ts`, `packages/api/src/routers/custom-content.ts`
   - **Prosedur:**
     - `section.reorderAndToggle` (Mutasi batch mengupdate `sortOrder` dan `isVisible`).
@@ -64,7 +64,7 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
     - `customContent.deleteSlot` (Mutasi menghapus seluruh isian di slot tersebut).
   - **DoD:** Validasi Zod ketat untuk 8 tipe konten `ContentType`.
 
-- [ ] **Task 2.4 — Router Tamu & RSVP (`guest.ts` & `rsvp.ts`)**
+- [x] **Task 2.4 — Router Tamu & RSVP (`guest.ts` & `rsvp.ts`)**
   - **Berkas Target:** `packages/api/src/routers/guest.ts`, `packages/api/src/routers/rsvp.ts`
   - **Prosedur:**
     - `guest.list` & `guest.batchCreate` (Protected procedure manajemen tamu).
