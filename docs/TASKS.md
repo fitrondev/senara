@@ -16,17 +16,17 @@ Dokumen ini adalah daftar tugas terperinci (*bite-sized development tasks*) yang
 
 ## 📦 Epic 1: Basis Data & Skema Prisma (`packages/db`)
 
-- [ ] **Task 1.1 — Implementasi Skema Model Inti Prisma**
+- [x] **Task 1.1 — Implementasi Skema Model Inti Prisma**
   - **Berkas Target:** `packages/db/prisma/schema/schema.prisma`
   - **Deskripsi:** Menuliskan seluruh model relasional (`User`, `Template`, `Invitation`, `InvitationSection`, `InvitationCustomContent`, `EventSchedule`, `BankAccount`, `GalleryMedia`, `LoveStory`, `Guest`, `RSVPResponse`, `PageViewStat`, `Order`, `PaymentTransaction`) sesuai spesifikasi di [DATABASE_SCHEMA.md](file:///d:/senara/docs/DATABASE_SCHEMA.md).
   - **DoD:** `bun --filter @senara/db run prisma generate` berhasil tanpa galat sintaks.
 
-- [ ] **Task 1.2 — Eksekusi Migrasi Awal Database MySQL**
+- [x] **Task 1.2 — Eksekusi Migrasi Awal Database MySQL**
   - **Berkas Target:** `packages/db/prisma/migrations/`
   - **Deskripsi:** Menjalankan `prisma migrate dev --name init_senara_core` untuk membuat tabel dan indeks pada MySQL lokal.
   - **DoD:** Tabel terbentuk di MySQL dan migration lock tersimpan rapi.
 
-- [ ] **Task 1.3 — Script Seeding Master Template & Kategori**
+- [x] **Task 1.3 — Script Seeding Master Template & Kategori**
   - **Berkas Target:** `packages/db/src/seed.ts`, `packages/db/package.json`
   - **Deskripsi:** Membuat script seeder untuk menyisipkan minimal 3 template master awal (*Kartu Pos Vintage*, *Minimalis Elegan*, *Floral Romance*) lengkap dengan konfigurasi section bawaan.
   - **DoD:** `bun --filter @senara/db run db:seed` berhasil mengisi tabel `Template`.
