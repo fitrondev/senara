@@ -67,7 +67,9 @@ export function SectionReorderModal({
     trpc.section.reorderAndToggle.mutationOptions({
       onSuccess: () => {
         toast.success("Urutan dan visibilitas section berhasil disimpan");
-        queryClient.invalidateQueries(trpc.invitation.getById.queryFilter({ id: invitationId }));
+        queryClient.invalidateQueries(
+          trpc.invitation.getById.queryFilter({ id: invitationId })
+        );
       },
       onError: (err) => {
         toast.error(err.message || "Gagal menyimpan urutan section");
@@ -131,14 +133,15 @@ export function SectionReorderModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Layers className="size-5 text-primary" />
+            <Layers className="text-primary size-5" />
             <span>Urutan & Visibilitas Section</span>
           </DialogTitle>
           <DialogDescription>
-            Atur susunan vertikal bagian undangan dan aktifkan/sembunyikan bagian tertentu.
+            Atur susunan vertikal bagian undangan dan aktifkan/sembunyikan
+            bagian tertentu.
           </DialogDescription>
         </DialogHeader>
 
@@ -154,36 +157,39 @@ export function SectionReorderModal({
                   "flex flex-row items-center justify-between gap-3 p-3 transition-colors",
                   section.isVisible
                     ? "bg-card border-border"
-                    : "bg-muted/40 border-dashed border-border/70 opacity-70"
+                    : "bg-muted/40 border-border/70 border-dashed opacity-70"
                 )}
               >
                 {/* Informasi Section & Nomor Urut */}
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-md text-xs font-semibold">
                     {index + 1}
                   </div>
 
                   <div className="flex min-w-0 flex-col">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm truncate">
+                      <span className="truncate text-sm font-semibold">
                         {section.title || section.sectionKey}
                       </span>
                       {section.isLocked && (
-                        <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 h-4">
+                        <Badge
+                          variant="outline"
+                          className="h-4 gap-1 px-1.5 py-0 text-[10px]"
+                        >
                           <Lock className="size-2.5" />
                           <span>Wajib</span>
                         </Badge>
                       )}
                     </div>
-                    <span className="text-[11px] text-muted-foreground font-mono truncate">
+                    <span className="text-muted-foreground truncate font-mono text-[11px]">
                       {section.sectionKey}
                     </span>
                   </div>
                 </div>
 
                 {/* Kontrol Aksi: Panah Geser & Switch Toggle */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="flex items-center rounded-md border bg-background">
+                <div className="flex shrink-0 items-center gap-2">
+                  <div className="bg-background flex items-center rounded-md border">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -238,4 +244,3 @@ export function SectionReorderModal({
     </Dialog>
   );
 }
-

@@ -1,4 +1,5 @@
 import Header from "@/components/header";
+import Footer from "@/components/footer";
 
 export default function HomeLayout({
   children,
@@ -6,9 +7,10 @@ export default function HomeLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="grid min-h-svh grid-rows-[auto_1fr]">
+    <div className="flex min-h-svh flex-col bg-background">
       <Header />
-      {children}
+      <main className="flex-1">{children}</main>
+      <Footer />
     </div>
   );
 }
