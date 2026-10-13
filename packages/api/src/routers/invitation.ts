@@ -2,11 +2,48 @@ import { INITIAL_TEMPLATES, type Prisma } from "@senara/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { protectedProcedure, publicProcedure, router } from "../index";
+import { protectedProcedure, publicProcedure, router } from "../trpc";
 
 export const invitationRouter = router({
+  getMyCredit: protectedProcedure.query(async ({ ctx }) => {
+    const user = await ctx.db.user.findUnique({
+      where: { id: ctx.auth.userId },
+      select: { creditBalance: true, role: true },
+    });
+    return {
+      creditBalance: user?.creditBalance ?? 0,
+      role: user?.role ?? "USER",
+    };
+  }),
+
   getMyInvitations: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.db.invitation.findMany({
+    const user = await ctx.db.user.findUnique({
+      where: { id: ctx.auth.userId },
+      select: { role: true },
+    });
+    const isReseller =
+      user?.role === "RESELLER" ||
+      ctx.auth.sessionClaims?.metadata?.role?.toLowerCase() === "reseller";
+
+    if (isReseller) {
+      await ctx.db.invitation.updateMany({
+        where: {
+          userId: ctx.auth.userId,
+          OR: [
+            { packageTier: "FREE" },
+            { status: "DRAFT" },
+          ],
+        },
+        data: {
+          packageTier: "PREMIUM",
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+          enabledAddons: ["STATS", "PRIVATE_MODE"],
+        },
+      });
+    }
+
+    const items = await ctx.db.invitation.findMany({
       where: {
         userId: ctx.auth.userId,
       },
@@ -20,6 +57,10 @@ export const invitationRouter = router({
         packageTier: true,
         eventDate: true,
         coverImageUrl: true,
+        themeConfig: true,
+        isPrivateMode: true,
+        maxDevicesPerGuest: true,
+        enabledAddons: true,
         publishedAt: true,
         createdAt: true,
         updatedAt: true,
@@ -44,6 +85,24 @@ export const invitationRouter = router({
       orderBy: {
         updatedAt: "desc",
       },
+    });
+
+    return items.map((item) => {
+      const normalizedTheme =
+        (item.themeConfig as Record<string, unknown> | null) ?? null;
+      const isSlugLocked = Boolean(
+        item.publishedAt ||
+          item.status === "PUBLISHED" ||
+          normalizedTheme?.previewSharedAt
+      );
+      return {
+        ...item,
+        themeConfig: normalizedTheme,
+        isSlugLocked,
+        enabledAddons: Array.isArray(item.enabledAddons)
+          ? (item.enabledAddons as string[])
+          : [],
+      };
     });
   }),
 
@@ -73,6 +132,9 @@ export const invitationRouter = router({
           musicTitle: true,
           isMusicAutoplay: true,
           coverImageUrl: true,
+          isPrivateMode: true,
+          maxDevicesPerGuest: true,
+          enabledAddons: true,
           publishedAt: true,
           createdAt: true,
           updatedAt: true,
@@ -187,9 +249,33 @@ export const invitationRouter = router({
         });
       }
 
+      const user = await ctx.db.user.findUnique({
+        where: { id: ctx.auth.userId },
+        select: { role: true },
+      });
+      const isReseller =
+        user?.role === "RESELLER" ||
+        ctx.auth.sessionClaims?.metadata?.role?.toLowerCase() === "reseller";
+
+      if (isReseller) {
+        return {
+          ...invitation,
+          packageTier: "PREMIUM" as const,
+          status: (invitation.status === "ARCHIVED"
+            ? "ARCHIVED"
+            : "PUBLISHED") as typeof invitation.status,
+          themeConfig:
+            (invitation.themeConfig as Record<string, unknown> | null) ?? null,
+          enabledAddons: ["STATS", "PRIVATE_MODE"],
+        };
+      }
+
       return {
         ...invitation,
         themeConfig: (invitation.themeConfig as Record<string, unknown> | null) ?? null,
+        enabledAddons: Array.isArray(invitation.enabledAddons)
+          ? (invitation.enabledAddons as string[])
+          : [],
       };
     }),
 
@@ -213,7 +299,16 @@ export const invitationRouter = router({
           musicUrl: true,
           themeConfig: true,
           status: true,
+          isPrivateMode: true,
+          maxDevicesPerGuest: true,
+          enabledAddons: true,
           templateId: true,
+          user: {
+            select: {
+              resellerBrandName: true,
+              resellerLogoUrl: true,
+            },
+          },
           template: {
             select: {
               id: true,
@@ -327,6 +422,9 @@ export const invitationRouter = router({
       return {
         ...invitation,
         themeConfig: (invitation.themeConfig as Record<string, unknown> | null) ?? null,
+        enabledAddons: Array.isArray(invitation.enabledAddons)
+          ? (invitation.enabledAddons as string[])
+          : [],
       };
     }),
 
@@ -367,7 +465,7 @@ export const invitationRouter = router({
       }
 
       // Pastikan User profile ada di database lokal
-      await ctx.db.user.upsert({
+      const user = await ctx.db.user.upsert({
         where: { id: ctx.auth.userId },
         update: {},
         create: {
@@ -375,7 +473,42 @@ export const invitationRouter = router({
           email: `${ctx.auth.userId}@user.senara.local`,
           name: "Pengguna Senara",
         },
+        select: {
+          id: true,
+          role: true,
+          creditBalance: true,
+        },
       });
+
+      const isReseller =
+        user.role === "RESELLER" ||
+        ctx.auth.sessionClaims?.metadata?.role?.toLowerCase() === "reseller";
+
+      if (isReseller) {
+        if (user.creditBalance < 5) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `Saldo kredit tidak mencukupi untuk membuat undangan reseller (membutuhkan 5 kredit = Rp 5.000). Saldo saat ini: ${user.creditBalance} kredit. Silakan isi ulang kredit terlebih dahulu di dashboard reseller.`,
+          });
+        }
+
+        // Potong 5 kredit untuk reseller saat membuat undangan
+        await ctx.db.user.update({
+          where: { id: ctx.auth.userId },
+          data: {
+            creditBalance: {
+              decrement: 5,
+            },
+          },
+        });
+      }
+
+      const packageTier = isReseller ? "PREMIUM" : "FREE";
+      const status = isReseller ? "PUBLISHED" : "DRAFT";
+      const publishedAt = isReseller ? new Date() : null;
+      const enabledAddons = isReseller
+        ? ["STATS", "PRIVATE_MODE"]
+        : [];
 
       const templatePreset = INITIAL_TEMPLATES.find((t) => t.slug === template.slug);
       const defaultSections = templatePreset?.defaultSections ?? [
@@ -397,8 +530,10 @@ export const invitationRouter = router({
           title: input.title,
           slug: input.slug,
           eventDate: input.eventDate,
-          status: "DRAFT",
-          packageTier: "FREE",
+          status,
+          publishedAt,
+          packageTier,
+          enabledAddons: enabledAddons as unknown as Prisma.InputJsonValue,
           sections: {
             create: defaultSections.map((s) => ({
               sectionKey: s.sectionKey,
@@ -438,6 +573,9 @@ export const invitationRouter = router({
         musicTitle: z.string().nullish(),
         isMusicAutoplay: z.boolean().optional(),
         coverImageUrl: z.string().nullish(),
+        isPrivateMode: z.boolean().optional(),
+        maxDevicesPerGuest: z.number().int().min(1).max(10).optional(),
+        enabledAddons: z.array(z.string()).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -456,6 +594,22 @@ export const invitationRouter = router({
       }
 
       if (input.slug && input.slug !== existing.slug) {
+        const existingTheme =
+          (existing.themeConfig as Record<string, unknown> | null) ?? null;
+        const isSlugLocked = Boolean(
+          existing.publishedAt ||
+            existing.status === "PUBLISHED" ||
+            existingTheme?.previewSharedAt
+        );
+
+        if (isSlugLocked) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Alamat tautan (slug) sudah dikunci karena undangan pernah diterbitkan atau tautan pratinjau telah dibagikan.",
+          });
+        }
+
         const slugConflict = await ctx.db.invitation.findUnique({
           where: { slug: input.slug },
         });
@@ -468,7 +622,27 @@ export const invitationRouter = router({
         }
       }
 
-      return ctx.db.invitation.update({
+      const user = await ctx.db.user.findUnique({
+        where: { id: ctx.auth.userId },
+        select: { role: true },
+      });
+      const isReseller =
+        user?.role === "RESELLER" ||
+        ctx.auth.sessionClaims?.metadata?.role?.toLowerCase() === "reseller";
+
+      const packageTierData = isReseller
+        ? "PREMIUM"
+        : input.packageTier
+          ? input.packageTier
+          : undefined;
+
+      const enabledAddonsData = isReseller
+        ? (["STATS", "PRIVATE_MODE"] as unknown as Prisma.InputJsonValue)
+        : input.enabledAddons !== undefined
+          ? (input.enabledAddons as Prisma.InputJsonValue)
+          : undefined;
+
+      const updated = await ctx.db.invitation.update({
         where: { id: input.id },
         data: {
           ...(input.title ? { title: input.title } : {}),
@@ -480,7 +654,7 @@ export const invitationRouter = router({
                 ...(input.status === "PUBLISHED" && !existing.publishedAt ? { publishedAt: new Date() } : {}),
               }
             : {}),
-          ...(input.packageTier ? { packageTier: input.packageTier } : {}),
+          ...(packageTierData ? { packageTier: packageTierData } : {}),
           ...(input.themeConfig !== undefined
             ? { themeConfig: (input.themeConfig as Prisma.InputJsonValue) ?? null }
             : {}),
@@ -488,6 +662,11 @@ export const invitationRouter = router({
           ...(input.musicTitle !== undefined ? { musicTitle: input.musicTitle } : {}),
           ...(typeof input.isMusicAutoplay === "boolean" ? { isMusicAutoplay: input.isMusicAutoplay } : {}),
           ...(input.coverImageUrl !== undefined ? { coverImageUrl: input.coverImageUrl } : {}),
+          ...(typeof input.isPrivateMode === "boolean" ? { isPrivateMode: input.isPrivateMode } : {}),
+          ...(typeof input.maxDevicesPerGuest === "number" ? { maxDevicesPerGuest: input.maxDevicesPerGuest } : {}),
+          ...(enabledAddonsData !== undefined
+            ? { enabledAddons: enabledAddonsData }
+            : {}),
         },
         select: {
           id: true,
@@ -500,10 +679,202 @@ export const invitationRouter = router({
           musicTitle: true,
           isMusicAutoplay: true,
           coverImageUrl: true,
+          isPrivateMode: true,
+          maxDevicesPerGuest: true,
+          enabledAddons: true,
           publishedAt: true,
           updatedAt: true,
         },
       });
+
+      return {
+        ...updated,
+        enabledAddons: Array.isArray(updated.enabledAddons)
+          ? (updated.enabledAddons as string[])
+          : [],
+      };
+    }),
+
+  verifyGuestDevice: publicProcedure
+    .input(
+      z.object({
+        invitationId: z.string().min(1),
+        guestCode: z.string().optional(),
+        guestName: z.string().optional(),
+        deviceFingerprint: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const invitation = await ctx.db.invitation.findUnique({
+        where: { id: input.invitationId },
+        select: {
+          id: true,
+          isPrivateMode: true,
+          maxDevicesPerGuest: true,
+        },
+      });
+
+      if (!invitation) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Undangan tidak ditemukan.",
+        });
+      }
+
+      let guest = null;
+      if (input.guestCode) {
+        guest = await ctx.db.guest.findFirst({
+          where: {
+            invitationId: input.invitationId,
+            OR: [{ id: input.guestCode }, { customSlug: input.guestCode }],
+          },
+        });
+      }
+      if (!guest && input.guestName) {
+        guest = await ctx.db.guest.findFirst({
+          where: {
+            invitationId: input.invitationId,
+            name: input.guestName.trim(),
+          },
+        });
+      }
+
+      if (invitation.isPrivateMode && !guest) {
+        return {
+          allowed: false as const,
+          reason: "PRIVATE_LOCKED" as const,
+          maxDevices: invitation.maxDevicesPerGuest,
+          guestId: null,
+          guestName: null,
+          isGroupLink: false,
+        };
+      }
+
+      if (!guest) {
+        return {
+          allowed: true as const,
+          reason: "PUBLIC_ALLOWED" as const,
+          maxDevices: invitation.maxDevicesPerGuest,
+          guestId: null,
+          guestName: input.guestName ?? null,
+          isGroupLink: false,
+        };
+      }
+
+      const currentFingerprints = Array.isArray(guest.deviceFingerprints)
+        ? (guest.deviceFingerprints as string[])
+        : [];
+
+      const isKnownDevice = currentFingerprints.includes(input.deviceFingerprint);
+
+      if (
+        invitation.isPrivateMode &&
+        !guest.isGroupLink &&
+        !isKnownDevice &&
+        currentFingerprints.length >= invitation.maxDevicesPerGuest
+      ) {
+        return {
+          allowed: false as const,
+          reason: "DEVICE_LIMIT_REACHED" as const,
+          maxDevices: invitation.maxDevicesPerGuest,
+          guestId: guest.id,
+          guestName: guest.name,
+          isGroupLink: guest.isGroupLink,
+        };
+      }
+
+      if (!guest.isGroupLink && !isKnownDevice) {
+        await ctx.db.guest.update({
+          where: { id: guest.id },
+          data: {
+            deviceFingerprints: [...currentFingerprints, input.deviceFingerprint],
+          },
+        });
+      }
+
+      return {
+        allowed: true as const,
+        reason: "GUEST_VERIFIED" as const,
+        maxDevices: invitation.maxDevicesPerGuest,
+        guestId: guest.id,
+        guestName: guest.name,
+        isGroupLink: guest.isGroupLink,
+      };
+    }),
+
+
+  changeTemplate: protectedProcedure
+    .input(
+      z.object({
+        invitationId: z.string().min(1),
+        newTemplateId: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.invitation.findFirst({
+        where: {
+          id: input.invitationId,
+          userId: ctx.auth.userId,
+        },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Undangan tidak ditemukan atau Anda tidak memiliki akses.",
+        });
+      }
+
+      const targetTemplate = await ctx.db.template.findUnique({
+        where: { id: input.newTemplateId },
+      });
+
+      if (!targetTemplate) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Template tujuan tidak ditemukan.",
+        });
+      }
+
+      const updated = await ctx.db.invitation.update({
+        where: { id: input.invitationId },
+        data: {
+          templateId: targetTemplate.id,
+        },
+        select: {
+          id: true,
+          templateId: true,
+          updatedAt: true,
+          template: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              category: true,
+              thumbnail: true,
+              isPremium: true,
+            },
+          },
+        },
+      });
+
+      return updated;
+    }),
+
+  checkLastUpdated: protectedProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const inv = await ctx.db.invitation.findFirst({
+        where: {
+          id: input.id,
+          userId: ctx.auth.userId,
+        },
+        select: {
+          id: true,
+          updatedAt: true,
+        },
+      });
+      return inv ? { id: inv.id, updatedAt: inv.updatedAt } : null;
     }),
 
   duplicate: protectedProcedure
@@ -619,10 +990,50 @@ export const invitationRouter = router({
       });
     }),
 
+  markPreviewShared: protectedProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.invitation.findFirst({
+        where: {
+          id: input.id,
+          userId: ctx.auth.userId,
+        },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Undangan tidak ditemukan.",
+        });
+      }
+
+      const currentTheme =
+        (existing.themeConfig as Record<string, unknown> | null) ?? {};
+      const nextTheme = {
+        ...currentTheme,
+        previewSharedAt:
+          currentTheme.previewSharedAt ?? new Date().toISOString(),
+      };
+
+      await ctx.db.invitation.update({
+        where: { id: existing.id },
+        data: {
+          themeConfig: nextTheme as Prisma.InputJsonValue,
+        },
+      });
+
+      return {
+        id: existing.id,
+        slug: existing.slug,
+        isSlugLocked: true,
+      };
+    }),
+
   delete: protectedProcedure
     .input(
       z.object({
         id: z.string().min(1),
+        confirmText: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -637,6 +1048,22 @@ export const invitationRouter = router({
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Undangan tidak ditemukan atau Anda tidak memiliki hak akses.",
+        });
+      }
+
+      const requiresStrictConfirm =
+        existing.packageTier === "PREMIUM" ||
+        existing.status === "PUBLISHED" ||
+        Boolean(existing.publishedAt);
+
+      if (
+        requiresStrictConfirm &&
+        input.confirmText?.trim().toUpperCase() !== "HAPUS"
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            'Ketik kata "HAPUS" untuk mengonfirmasi penghapusan undangan yang sudah diterbitkan atau berbayar.',
         });
       }
 

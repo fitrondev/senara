@@ -2,34 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertCircle,
-  ArrowDown,
-  ArrowUp,
-  Check,
-  Edit2,
-  ExternalLink,
-  Heading,
-  Image as ImageIcon,
-  Info,
-  Layers,
-  Link2,
-  Loader2,
-  MapPin,
-  MousePointerClick,
-  Plus,
-  Trash2,
-  Type,
-  Video,
-} from "lucide-react";
-
-function YoutubeIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" {...props}>
-      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-    </svg>
-  );
-}
+import { Info, Layers, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -37,15 +10,6 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@senara/ui/components/alert";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@senara/ui/components/alert-dialog";
 import { Badge } from "@senara/ui/components/badge";
 import { Button } from "@senara/ui/components/button";
 import {
@@ -57,22 +21,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@senara/ui/components/dialog";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@senara/ui/components/empty";
 import { Label } from "@senara/ui/components/label";
-import { NativeSelect, NativeSelectOption } from "@senara/ui/components/native-select";
-import { Separator } from "@senara/ui/components/separator";
-import { Switch } from "@senara/ui/components/switch";
-import { cn } from "@senara/ui/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@senara/ui/components/select";
 
 import {
   CustomContentForm,
   type CustomContentType,
 } from "@/components/editor/custom-content-forms";
+import { CustomContentSlotList } from "@/components/editor/custom-content-slot-list";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { trpc } from "@/utils/trpc";
 
 export interface SlotDefinition {
@@ -160,21 +123,15 @@ export function CustomContentModal({
 }: CustomContentModalProps) {
   const queryClient = useQueryClient();
 
-  // State Slot Terpilih
   const [currentSlotId, setCurrentSlotId] = useState<string>(initialSlotId);
-
-  // State Form Mode (menambah atau mengedit item)
   const [formMode, setFormMode] = useState<"idle" | "create" | "edit">("idle");
   const [activeType, setActiveType] = useState<CustomContentType>("TITLE");
-  const [editingItem, setEditingItem] = useState<CustomContentItemData | null>(null);
-
-  // State Dialog Konfirmasi Hapus Bersih Slot
+  const [editingItem, setEditingItem] =
+    useState<CustomContentItemData | null>(null);
   const [wipeSlotDialogOpen, setWipeSlotDialogOpen] = useState(false);
+  const [deleteItemTarget, setDeleteItemTarget] =
+    useState<CustomContentItemData | null>(null);
 
-  // State Dialog Konfirmasi Hapus Satuan
-  const [deleteItemTarget, setDeleteItemTarget] = useState<CustomContentItemData | null>(null);
-
-  // Filter & Urutkan item untuk slot aktif
   const slotItems = useMemo(() => {
     return items
       .filter((item) => item.slotId === currentSlotId)
@@ -183,58 +140,61 @@ export function CustomContentModal({
 
   const currentSlotInfo = useMemo(() => {
     return (
-      AVAILABLE_SLOTS.find((s) => s.slotId === currentSlotId) ?? AVAILABLE_SLOTS[0]
+      AVAILABLE_SLOTS.find((s) => s.slotId === currentSlotId) ??
+      AVAILABLE_SLOTS[0]
     );
   }, [currentSlotId]);
 
-  // Mutasi: Tambah Konten Baru
+  const invalidateInvitation = () => {
+    queryClient.invalidateQueries(
+      trpc.invitation.getById.queryFilter({ id: invitationId })
+    );
+  };
+
   const addMutation = useMutation(
     trpc.customContent.add.mutationOptions({
       onSuccess: () => {
-        toast.success("Komponen isian berhasil ditambahkan.");
-        queryClient.invalidateQueries(trpc.invitation.getById.queryFilter({ id: invitationId }));
+        toast.success("Blok layout kustom berhasil ditambahkan.");
+        invalidateInvitation();
         setFormMode("idle");
         setEditingItem(null);
       },
       onError: (err) => {
-        toast.error(err.message || "Gagal menambahkan komponen isian.");
+        toast.error(err.message || "Gagal menambahkan blok layout kustom.");
       },
     })
   );
 
-  // Mutasi: Perbarui Konten
   const updateMutation = useMutation(
     trpc.customContent.update.mutationOptions({
       onSuccess: () => {
-        toast.success("Isian berhasil diperbarui.");
-        queryClient.invalidateQueries(trpc.invitation.getById.queryFilter({ id: invitationId }));
+        toast.success("Layout kustom berhasil diperbarui.");
+        invalidateInvitation();
         setFormMode("idle");
         setEditingItem(null);
       },
       onError: (err) => {
-        toast.error(err.message || "Gagal memperbarui isian.");
+        toast.error(err.message || "Gagal memperbarui layout kustom.");
       },
     })
   );
 
-  // Mutasi: Urutan Internal Slot
   const reorderMutation = useMutation(
     trpc.customContent.reorder.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries(trpc.invitation.getById.queryFilter({ id: invitationId }));
+        invalidateInvitation();
       },
       onError: (err) => {
-        toast.error(err.message || "Gagal mengubah urutan isian.");
+        toast.error(err.message || "Gagal mengubah urutan layout kustom.");
       },
     })
   );
 
-  // Mutasi: Hapus Satuan
   const deleteItemMutation = useMutation(
     trpc.customContent.deleteItem.mutationOptions({
       onSuccess: () => {
-        toast.success("Komponen isian dihapus.");
-        queryClient.invalidateQueries(trpc.invitation.getById.queryFilter({ id: invitationId }));
+        toast.success("Blok layout kustom dihapus.");
+        invalidateInvitation();
         setDeleteItemTarget(null);
       },
       onError: (err) => {
@@ -243,21 +203,21 @@ export function CustomContentModal({
     })
   );
 
-  // Mutasi: Hapus Seluruh Slot
   const deleteSlotMutation = useMutation(
     trpc.customContent.deleteSlot.mutationOptions({
       onSuccess: (data) => {
-        toast.success(`Seluruh ${data.deletedCount} isian di slot ini berhasil dibersihkan.`);
-        queryClient.invalidateQueries(trpc.invitation.getById.queryFilter({ id: invitationId }));
+        toast.success(
+          `Seluruh ${data.deletedCount} blok kustom di posisi ini berhasil dibersihkan.`
+        );
+        invalidateInvitation();
         setWipeSlotDialogOpen(false);
       },
       onError: (err) => {
-        toast.error(err.message || "Gagal menghapus slot.");
+        toast.error(err.message || "Gagal membersihkan posisi layout.");
       },
     })
   );
 
-  // Handler: Geser Urutan Internal (Intra-slot Reordering)
   const handleMoveOrder = (index: number, direction: "up" | "down") => {
     const targetIndex = direction === "up" ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= slotItems.length) return;
@@ -267,19 +227,16 @@ export function CustomContentModal({
     if (!moved) return;
     newItems.splice(targetIndex, 0, moved);
 
-    const reorderedPayload = newItems.map((item, idx) => ({
-      id: item.id,
-      sortOrder: idx,
-    }));
-
     reorderMutation.mutate({
       invitationId,
       slotId: currentSlotId,
-      items: reorderedPayload,
+      items: newItems.map((item, idx) => ({
+        id: item.id,
+        sortOrder: idx,
+      })),
     });
   };
 
-  // Handler: Toggle Visibilitas
   const handleToggleVisible = (itemId: string, currentVisible: boolean) => {
     updateMutation.mutate({
       id: itemId,
@@ -288,14 +245,12 @@ export function CustomContentModal({
     });
   };
 
-  // Handler: Mulai Edit
   const handleStartEdit = (item: CustomContentItemData) => {
     setEditingItem(item);
     setActiveType(item.type as CustomContentType);
     setFormMode("edit");
   };
 
-  // Handler: Submit Form Isian
   const handleFormSubmit = async (payload: Record<string, unknown>) => {
     if (formMode === "edit" && editingItem) {
       await updateMutation.mutateAsync({
@@ -314,83 +269,6 @@ export function CustomContentModal({
     }
   };
 
-  // Ringkasan Tampilan per Tipe Konten
-  const renderItemPreview = (item: CustomContentItemData) => {
-    const content = (item.content as Record<string, unknown>) || {};
-    switch (item.type) {
-      case "TITLE":
-        return (
-          <div className="flex items-center gap-2">
-            <Heading className="size-4 text-primary shrink-0" />
-            <span className="font-semibold text-sm truncate">
-              {(content.title as string) || "Judul Tanpa Nama"}
-            </span>
-          </div>
-        );
-      case "TEXT":
-        return (
-          <div className="flex items-center gap-2">
-            <Type className="size-4 text-blue-500 shrink-0" />
-            <span className="text-xs text-muted-foreground truncate line-clamp-1">
-              {(content.text as string) || "Teks paragraf..."}
-            </span>
-          </div>
-        );
-      case "PHOTO":
-        return (
-          <div className="flex items-center gap-2">
-            <ImageIcon className="size-4 text-emerald-500 shrink-0" />
-            <span className="text-xs truncate">
-              {(content.caption as string) || (content.imageUrl as string) || "Foto"}
-            </span>
-          </div>
-        );
-      case "VIDEO":
-        return (
-          <div className="flex items-center gap-2">
-            <Video className="size-4 text-purple-500 shrink-0" />
-            <span className="text-xs truncate">{(content.videoUrl as string) || "Video Clip"}</span>
-          </div>
-        );
-      case "BUTTON":
-        return (
-          <div className="flex items-center gap-2">
-            <MousePointerClick className="size-4 text-amber-500 shrink-0" />
-            <span className="font-medium text-xs truncate">
-              {(content.label as string) || "Tombol CTA"}
-            </span>
-          </div>
-        );
-      case "LINK":
-        return (
-          <div className="flex items-center gap-2">
-            <Link2 className="size-4 text-cyan-500 shrink-0" />
-            <span className="text-xs truncate">{(content.label as string) || "Tautan"}</span>
-          </div>
-        );
-      case "YOUTUBE":
-        return (
-          <div className="flex items-center gap-2">
-            <YoutubeIcon className="size-4 text-red-500 shrink-0" />
-            <span className="text-xs truncate">
-              {(content.youtubeUrl as string) || "YouTube Video"}
-            </span>
-          </div>
-        );
-      case "MAP":
-        return (
-          <div className="flex items-center gap-2">
-            <MapPin className="size-4 text-rose-500 shrink-0" />
-            <span className="font-medium text-xs truncate">
-              {(content.locationName as string) || "Lokasi Peta"}
-            </span>
-          </div>
-        );
-      default:
-        return <span className="text-xs text-muted-foreground">Komponen Isian</span>;
-    }
-  };
-
   return (
     <>
       <Dialog
@@ -403,299 +281,98 @@ export function CustomContentModal({
           }
         }}
       >
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <div className="rounded-md bg-primary/10 p-1.5 text-primary">
                 <Layers className="size-5" />
               </div>
               <div>
-                <DialogTitle>Isian Kamu</DialogTitle>
+                <DialogTitle>Layout Kustom</DialogTitle>
                 <DialogDescription className="text-xs">
-                  Sisipkan komponen kustom di titik jangkar slot tanpa merusak keindahan template.
+                  Sisipkan blok konten tambahan di titik posisi pilihan tanpa
+                  merusak estetika template.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          {/* 1. Pemilih Titik Jangkar Slot (Muncul Setelah) */}
-          {formMode === "idle" && (
+          {formMode === "idle" ? (
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs font-semibold text-foreground">
                   Muncul setelah:
                 </Label>
-                <NativeSelect
+                <Select
                   value={currentSlotId}
-                  onChange={(e) => {
-                    setCurrentSlotId(e.target.value);
+                  onValueChange={(val) => {
+                    if (val) setCurrentSlotId(val);
                   }}
-                  className="w-full"
                 >
-                  {AVAILABLE_SLOTS.map((slot) => (
-                    <NativeSelectOption key={slot.slotId} value={slot.slotId}>
-                      {slot.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pilih Posisi Layout">
+                      {currentSlotInfo?.label}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AVAILABLE_SLOTS.map((slot) => (
+                      <SelectItem key={slot.slotId} value={slot.slotId}>
+                        {slot.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Banner Aturan Persistent Slot (PRD Bab 13.1) */}
               <Alert className="border-primary/20 bg-primary/5 text-primary">
                 <Info className="size-4 shrink-0 text-primary" />
-                <AlertTitle className="text-primary font-medium text-xs">Persistent Slot Rule Aktif</AlertTitle>
-                <AlertDescription className="text-muted-foreground dark:text-zinc-300 text-[11px]">
-                  Isian tetap berada di posisi ini meskipun section sebelumnya dinonaktifkan
-                  atau disembunyikan.
+                <AlertTitle className="text-xs font-medium text-primary">
+                  Posisi Layout Persisten Aktif
+                </AlertTitle>
+                <AlertDescription className="text-[11px] text-muted-foreground dark:text-zinc-300">
+                  Layout kustom tetap berada di posisi ini meskipun bagian
+                  sebelumnya dinonaktifkan atau disembunyikan.
                 </AlertDescription>
               </Alert>
 
-              {/* Status & Indikator Urutan Slot */}
-              <div className="flex items-center justify-between text-xs text-muted-foreground border-b pb-2">
+              <div className="flex items-center justify-between border-b pb-2 text-xs text-muted-foreground">
                 <span>
-                  Total isian di slot ini:{" "}
-                  <strong className="text-foreground">{slotItems.length} komponen</strong>
+                  Total layout kustom di posisi ini:{" "}
+                  <strong className="text-foreground">
+                    {slotItems.length} blok
+                  </strong>
                 </span>
                 <Badge variant="outline" className="text-[10px]">
-                  Slot ID: {currentSlotInfo?.slotId}
+                  {currentSlotInfo?.label}
                 </Badge>
               </div>
 
-              {/* 2. Daftar Komponen di Slot Ini */}
-              <div className="flex flex-col gap-2">
-                <Label className="text-xs font-semibold text-foreground">
-                  Daftar Konten di Slot Ini:
-                </Label>
-
-                {slotItems.length === 0 ? (
-                  <Empty className="rounded-xl border border-dashed border-muted-foreground/30 p-6">
-                    <EmptyHeader>
-                      <EmptyTitle className="text-xs font-medium text-foreground">Slot ini masih kosong</EmptyTitle>
-                      <EmptyDescription className="text-[11px] text-muted-foreground">
-                        Pilih salah satu tombol tipe konten di bawah untuk mulai menambahkan isian.
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {slotItems.map((item, idx) => (
-                      <div
-                        key={item.id}
-                        className={cn(
-                          "flex items-center justify-between rounded-lg border p-3 transition-colors",
-                          item.isVisible ? "bg-card" : "bg-muted/40 opacity-60"
-                        )}
-                      >
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          {/* Indikator Posisi (Contoh: 1/3) */}
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] size-6 rounded-full flex items-center justify-center p-0 shrink-0"
-                          >
-                            {idx + 1}
-                          </Badge>
-
-                          <div className="min-w-0 flex-1">{renderItemPreview(item)}</div>
-                        </div>
-
-                        {/* Tombol Kontrol: Urutan Internal, Edit, Switch, Hapus */}
-                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                          {/* Tombol Urutan Internal */}
-                          <div className="flex items-center rounded border bg-background p-0.5">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-xs"
-                              onClick={() => handleMoveOrder(idx, "up")}
-                              disabled={idx === 0 || reorderMutation.isPending}
-                              title="Geser Naik"
-                              className="size-5 rounded-none"
-                            >
-                              <ArrowUp className="size-3" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-xs"
-                              onClick={() => handleMoveOrder(idx, "down")}
-                              disabled={
-                                idx === slotItems.length - 1 || reorderMutation.isPending
-                              }
-                              title="Geser Turun"
-                              className="size-5 rounded-none"
-                            >
-                              <ArrowDown className="size-3" />
-                            </Button>
-                          </div>
-
-                          {/* Sakelar Tampilkan / Sembunyikan */}
-                          <div title={item.isVisible ? "Tampilkan" : "Sembunyikan"}>
-                            <Switch
-                              checked={item.isVisible}
-                              onCheckedChange={() =>
-                                handleToggleVisible(item.id, item.isVisible)
-                              }
-                              size="sm"
-                            />
-                          </div>
-
-                          {/* Tombol Edit */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-muted-foreground hover:text-foreground"
-                            onClick={() => handleStartEdit(item)}
-                            title="Edit Komponen"
-                          >
-                            <Edit2 className="size-3" />
-                          </Button>
-
-                          {/* Tombol Hapus Satuan */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-destructive hover:bg-destructive/10"
-                            onClick={() => setDeleteItemTarget(item)}
-                            title="Hapus Komponen"
-                          >
-                            <Trash2 className="size-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* 3. Tombol Cepat Tambah 8 Tipe Komponen (PRD 13.2) */}
-              <div className="flex flex-col gap-2 pt-2 border-t">
-                <label className="text-xs font-semibold text-foreground">
-                  Tambah Komponen Baru ke Slot Ini:
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-1.5 text-xs"
-                    onClick={() => {
-                      setActiveType("TITLE");
-                      setEditingItem(null);
-                      setFormMode("create");
-                    }}
-                  >
-                    <Heading className="size-3.5 text-primary" />
-                    <span>+ Judul</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-1.5 text-xs"
-                    onClick={() => {
-                      setActiveType("TEXT");
-                      setEditingItem(null);
-                      setFormMode("create");
-                    }}
-                  >
-                    <Type className="size-3.5 text-blue-500" />
-                    <span>+ Teks</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-1.5 text-xs"
-                    onClick={() => {
-                      setActiveType("PHOTO");
-                      setEditingItem(null);
-                      setFormMode("create");
-                    }}
-                  >
-                    <ImageIcon className="size-3.5 text-emerald-500" />
-                    <span>+ Foto</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-1.5 text-xs"
-                    onClick={() => {
-                      setActiveType("VIDEO");
-                      setEditingItem(null);
-                      setFormMode("create");
-                    }}
-                  >
-                    <Video className="size-3.5 text-purple-500" />
-                    <span>+ Video</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-1.5 text-xs"
-                    onClick={() => {
-                      setActiveType("BUTTON");
-                      setEditingItem(null);
-                      setFormMode("create");
-                    }}
-                  >
-                    <MousePointerClick className="size-3.5 text-amber-500" />
-                    <span>+ Tombol</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-1.5 text-xs"
-                    onClick={() => {
-                      setActiveType("LINK");
-                      setEditingItem(null);
-                      setFormMode("create");
-                    }}
-                  >
-                    <Link2 className="size-3.5 text-cyan-500" />
-                    <span>+ Tautan</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-1.5 text-xs"
-                    onClick={() => {
-                      setActiveType("YOUTUBE");
-                      setEditingItem(null);
-                      setFormMode("create");
-                    }}
-                  >
-                    <YoutubeIcon className="size-3.5 text-red-500" />
-                    <span>+ YouTube</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 justify-start gap-1.5 text-xs"
-                    onClick={() => {
-                      setActiveType("MAP");
-                      setEditingItem(null);
-                      setFormMode("create");
-                    }}
-                  >
-                    <MapPin className="size-3.5 text-rose-500" />
-                    <span>+ Peta Lokasi</span>
-                  </Button>
-                </div>
-              </div>
+              <CustomContentSlotList
+                slotItems={slotItems}
+                isReordering={reorderMutation.isPending}
+                onMoveOrder={handleMoveOrder}
+                onToggleVisible={handleToggleVisible}
+                onEditItem={handleStartEdit}
+                onDeleteItem={(item) => setDeleteItemTarget(item)}
+                onCreateType={(type) => {
+                  setActiveType(type);
+                  setEditingItem(null);
+                  setFormMode("create");
+                }}
+              />
             </div>
-          )}
-
-          {/* Mode Form Pengisian Konten */}
-          {formMode !== "idle" && (
+          ) : (
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between border-b pb-2">
-                <span className="font-semibold text-sm">
-                  {formMode === "edit" ? "Edit Komponen" : "Tambah Komponen Baru"}:{" "}
-                  <Badge variant="secondary" className="ml-1 uppercase text-[10px]">
+                <span className="text-sm font-semibold">
+                  {formMode === "edit"
+                    ? "Edit Blok Kustom"
+                    : "Tambah Blok Kustom Baru"}
+                  :{" "}
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 text-[10px] uppercase"
+                  >
                     {activeType}
                   </Badge>
                 </span>
@@ -715,7 +392,9 @@ export function CustomContentModal({
               <CustomContentForm
                 type={activeType}
                 initialData={
-                  editingItem ? (editingItem.content as Record<string, unknown>) : undefined
+                  editingItem
+                    ? (editingItem.content as Record<string, unknown>)
+                    : undefined
                 }
                 onSubmit={handleFormSubmit}
                 onCancel={() => {
@@ -727,97 +406,71 @@ export function CustomContentModal({
             </div>
           )}
 
-          {/* Footer Modal: Tombol Hapus Bersih Slot & Selesai */}
-          {formMode === "idle" && (
-            <DialogFooter className="flex-col sm:flex-row items-center justify-between gap-2 border-t pt-3">
+          {formMode === "idle" ? (
+            <DialogFooter className="flex-col items-center justify-between gap-2 border-t pt-3 sm:flex-row">
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={() => setWipeSlotDialogOpen(true)}
-                disabled={slotItems.length === 0 || deleteSlotMutation.isPending}
-                className="gap-1.5 text-xs w-full sm:w-auto"
+                disabled={
+                  slotItems.length === 0 || deleteSlotMutation.isPending
+                }
+                className="w-full gap-1.5 text-xs sm:w-auto"
               >
                 <Trash2 className="size-3.5" />
-                <span>Hapus Seluruh Isian di Slot Ini</span>
+                <span>Bersihkan Seluruh Blok di Posisi Ini</span>
               </Button>
 
-              <DialogClose render={<Button size="sm" className="w-full sm:w-auto" />}>
+              <DialogClose
+                render={<Button size="sm" className="w-full sm:w-auto" />}
+              >
                 Selesai
               </DialogClose>
             </DialogFooter>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Konfirmasi Hapus Seluruh Isian di Slot (Task 5.3) */}
-      <AlertDialog
+      <ConfirmDeleteDialog
         open={wipeSlotDialogOpen}
-        onOpenChange={(isOpen) => setWipeSlotDialogOpen(isOpen)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Seluruh Isian di Slot Ini?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus seluruh <strong>{slotItems.length}</strong> isian
-              pada posisi <strong>"{currentSlotInfo?.label}"</strong>? Tindakan ini permanen dan
-              seluruh blok kustom di slot ini akan terhapus bersih.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteSlotMutation.isPending}>
-              Batal
-            </AlertDialogCancel>
-            <Button
-              variant="destructive"
-              disabled={deleteSlotMutation.isPending}
-              onClick={() =>
-                deleteSlotMutation.mutate({
-                  invitationId,
-                  slotId: currentSlotId,
-                })
-              }
-            >
-              {deleteSlotMutation.isPending ? "Menghapus..." : "Ya, Hapus Seluruh Isian"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={setWipeSlotDialogOpen}
+        title="Bersihkan Seluruh Blok di Posisi Ini?"
+        description={
+          <>
+            Apakah Anda yakin ingin menghapus seluruh{" "}
+            <strong>{slotItems.length}</strong> blok kustom pada posisi{" "}
+            <strong>&ldquo;{currentSlotInfo?.label}&rdquo;</strong>? Tindakan
+            ini permanen dan seluruh blok kustom di posisi ini akan dibersihkan.
+          </>
+        }
+        confirmLabel="Ya, Bersihkan Semua"
+        isPending={deleteSlotMutation.isPending}
+        onConfirm={() =>
+          deleteSlotMutation.mutate({
+            invitationId,
+            slotId: currentSlotId,
+          })
+        }
+      />
 
-      {/* Dialog Konfirmasi Hapus Satuan */}
-      <AlertDialog
-        open={!!deleteItemTarget}
+      <ConfirmDeleteDialog
+        open={Boolean(deleteItemTarget)}
         onOpenChange={(isOpen) => {
           if (!isOpen) setDeleteItemTarget(null);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Komponen Isian Ini?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Komponen ini akan dihapus dari undangan Anda. Tindakan ini tidak dapat dibatalkan.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteItemMutation.isPending}>
-              Batal
-            </AlertDialogCancel>
-            <Button
-              variant="destructive"
-              disabled={deleteItemMutation.isPending}
-              onClick={() => {
-                if (deleteItemTarget) {
-                  deleteItemMutation.mutate({
-                    id: deleteItemTarget.id,
-                    invitationId,
-                  });
-                }
-              }}
-            >
-              {deleteItemMutation.isPending ? "Menghapus..." : "Ya, Hapus Komponen"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Hapus Blok Layout Kustom Ini?"
+        description="Blok konten ini akan dihapus dari undangan Anda. Tindakan ini tidak dapat dibatalkan."
+        confirmLabel="Ya, Hapus Blok"
+        isPending={deleteItemMutation.isPending}
+        onConfirm={() => {
+          if (deleteItemTarget) {
+            deleteItemMutation.mutate({
+              id: deleteItemTarget.id,
+              invitationId,
+            });
+          }
+        }}
+      />
     </>
   );
 }

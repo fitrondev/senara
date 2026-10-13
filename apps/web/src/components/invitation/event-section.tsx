@@ -104,7 +104,7 @@ export function EventSection({ schedules, themeConfig }: EventSectionProps) {
               className="text-left shadow-xs transition-shadow hover:shadow-md"
             >
               {/* Header Acara */}
-              <CardHeader className="border-b pb-3">
+              <CardHeader className="border-b p-5 pb-3.5">
                 <CardTitle
                   className="font-bold text-base text-foreground tracking-tight"
                   style={{ fontFamily: themeConfig.typography.headingFont }}
@@ -119,7 +119,7 @@ export function EventSection({ schedules, themeConfig }: EventSectionProps) {
               </CardHeader>
 
               {/* Tanggal & Waktu */}
-              <CardContent className="space-y-2 py-3 text-xs">
+              <CardContent className="space-y-2 p-5 py-4 text-xs">
                 <div className="flex items-center gap-2 text-foreground font-medium">
                   <CalendarIcon className="size-4 shrink-0 text-primary" />
                   <span>{dateFormatted}</span>
@@ -147,7 +147,7 @@ export function EventSection({ schedules, themeConfig }: EventSectionProps) {
               </CardContent>
 
               {/* Tombol Aksi: Buka Maps & Simpan ke Kalender */}
-              <CardFooter className="grid grid-cols-2 gap-2 pt-2 border-t">
+              <CardFooter className="grid grid-cols-2 gap-2 border-t bg-muted/15 px-5 py-3.5">
                 <Button
                   variant="outline"
                   size="sm"

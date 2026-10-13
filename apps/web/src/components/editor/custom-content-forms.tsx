@@ -686,7 +686,7 @@ export function CustomContentForm({
               <span>Menyimpan...</span>
             </>
           ) : (
-            <span>Simpan Isian</span>
+            <span>Simpan Layout Kustom</span>
           )}
         </Button>
       </div>

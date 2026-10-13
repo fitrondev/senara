@@ -1,5 +1,13 @@
-import { createPrismaClient } from "@senara/db";
+import { createPrismaClient, type Database } from "@senara/db";
 
 import { ENV } from "./env.server";
 
-export const db = createPrismaClient(ENV);
+const globalForPrisma = globalThis as unknown as {
+  db: Database | undefined;
+};
+
+export const db = globalForPrisma.db ?? createPrismaClient(ENV);
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.db = db;
+}

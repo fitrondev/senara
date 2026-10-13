@@ -30,10 +30,12 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "start": "turbo run start -F web --",
     "check-types": "turbo run check-types",
     "format": "bun --bun prettier --write .",
     "format:check": "bun --bun prettier --check .",
     "dev:web": "turbo run dev -F web --",
+    "start:web": "turbo run start -F web --",
     "db:push": "turbo run db:push -F @senara/db --",
     "db:studio": "turbo run db:studio -F @senara/db --",
     "db:generate": "turbo run db:generate -F @senara/db --",

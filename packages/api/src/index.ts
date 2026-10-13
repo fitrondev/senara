@@ -1,31 +1,3 @@
-import { TRPCError, initTRPC } from "@trpc/server";
-
-import type { Context } from "./context";
-
-export const t = initTRPC.context<Context>().create();
-
-export const router = t.router;
-
-export const publicProcedure = t.procedure;
-
-export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
-  const userId = ctx.auth?.userId;
-  if (!userId) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Authentication required",
-      cause: "No Clerk userId",
-    });
-  }
-  return next({
-    ctx: {
-      ...ctx,
-      auth: {
-        userId,
-      },
-    },
-  });
-});
-
+export * from "./trpc";
 export { appRouter, type AppRouter } from "./routers/index";
 export type { Context } from "./context";

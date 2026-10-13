@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, ExternalLink, MessageCircle, RefreshCw, Send, Sparkles } from "lucide-react";
+import { MessageCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@senara/ui/components/button";
@@ -45,22 +45,51 @@ export function normalizeIndonesianPhone(phone?: string | null): string {
 }
 
 /**
+ * Menyusun URL undangan personal dengan parameter ?to= dan kode tamu &g=
+ */
+export function buildPersonalizedInvitationUrl({
+  publicBaseUrl,
+  invitationSlug,
+  guestName,
+  guestId,
+}: {
+  publicBaseUrl: string;
+  invitationSlug: string;
+  guestName: string;
+  guestId?: string;
+}): string {
+  const params = new URLSearchParams();
+  params.set("to", guestName);
+  if (guestId) {
+    params.set("g", guestId);
+  }
+  return `${publicBaseUrl}/${invitationSlug}?${params.toString()}`;
+}
+
+/**
  * Menyusun URL WhatsApp API langsung
  */
 export function generateWhatsAppUrl({
   phone,
   template,
   guestName,
+  guestId,
   publicBaseUrl,
   invitationSlug,
 }: {
   phone?: string | null;
   template: string;
   guestName: string;
+  guestId?: string;
   publicBaseUrl: string;
   invitationSlug: string;
 }): string {
-  const personalizedUrl = `${publicBaseUrl}/${invitationSlug}?to=${encodeURIComponent(guestName)}`;
+  const personalizedUrl = buildPersonalizedInvitationUrl({
+    publicBaseUrl,
+    invitationSlug,
+    guestName,
+    guestId,
+  });
   const message = template
     .replace(/{{guest_name}}/g, guestName)
     .replace(/{{invitation_url}}/g, personalizedUrl);
@@ -93,8 +122,13 @@ export function WhatsAppComposerModal({
 }: WhatsAppComposerModalProps) {
   const [draftTemplate, setDraftTemplate] = useState(template);
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://senara.id";
-  const sampleUrl = `${origin}/${invitationSlug}?to=${encodeURIComponent(sampleGuestName)}`;
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "https://senara.id";
+  const sampleUrl = buildPersonalizedInvitationUrl({
+    publicBaseUrl: origin,
+    invitationSlug,
+    guestName: sampleGuestName,
+  });
 
   const previewMessage = draftTemplate
     .replace(/{{guest_name}}/g, sampleGuestName)
@@ -112,7 +146,7 @@ export function WhatsAppComposerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="rounded-md bg-emerald-600/10 p-1.5 text-emerald-600">
@@ -128,9 +162,8 @@ export function WhatsAppComposerModal({
         </DialogHeader>
 
         <div className="flex flex-col gap-4 text-left">
-          {/* Variabel yang Tersedia */}
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-3 text-xs">
-            <span className="text-muted-foreground font-medium text-[11px]">
+            <span className="font-medium text-[11px] text-muted-foreground">
               Variabel Otomatis:
             </span>
             <Button
@@ -146,16 +179,17 @@ export function WhatsAppComposerModal({
               type="button"
               variant="outline"
               size="xs"
-              onClick={() => setDraftTemplate((prev) => prev + " {{invitation_url}}")}
+              onClick={() =>
+                setDraftTemplate((prev) => prev + " {{invitation_url}}")
+              }
               className="font-mono text-[11px]"
             >
               {"{{invitation_url}}"}
             </Button>
           </div>
 
-          {/* Textarea Template */}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="wa-template" className="text-xs font-semibold">
+            <Label htmlFor="wa-template" className="font-semibold text-xs">
               Teks Template Pesan
             </Label>
             <Textarea
@@ -167,24 +201,23 @@ export function WhatsAppComposerModal({
             />
           </div>
 
-          {/* Pratinjau Tampilan Pesan WhatsApp */}
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs font-semibold text-muted-foreground">
+            <Label className="font-semibold text-muted-foreground text-xs">
               Pratinjau Pesan yang Diterima Tamu:
             </Label>
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 text-xs text-foreground whitespace-pre-line leading-relaxed">
+            <div className="whitespace-pre-line rounded-xl border border-emerald-500/20 bg-emerald-50/50 p-3 text-foreground text-xs leading-relaxed dark:bg-emerald-950/20">
               {previewMessage}
             </div>
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row items-center justify-between gap-2 border-t pt-3">
+        <DialogFooter className="flex-col items-center justify-between gap-2 border-t pt-3 sm:flex-row">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={handleReset}
-            className="gap-1.5 text-xs text-muted-foreground"
+            className="gap-1.5 text-muted-foreground text-xs"
           >
             <RefreshCw className="size-3" />
             <span>Kembalikan ke Default</span>
@@ -194,7 +227,11 @@ export function WhatsAppComposerModal({
             <DialogClose render={<Button variant="outline" size="sm" />}>
               Batal
             </DialogClose>
-            <Button size="sm" onClick={handleSave} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
+            >
               <span>Simpan Format</span>
             </Button>
           </div>
@@ -203,4 +240,3 @@ export function WhatsAppComposerModal({
     </Dialog>
   );
 }
-

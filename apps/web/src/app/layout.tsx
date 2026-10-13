@@ -1,26 +1,33 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Quicksand, Libre_Baskerville, Space_Mono } from "next/font/google";
 
 import { ClerkProvider } from "@clerk/nextjs";
 
-import Header from "@/components/header";
 import Providers from "@/components/providers";
 
 import "../index.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const fontSans = Quicksand({
   subsets: ["latin"],
+  variable: "--font-sans",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const fontSerif = Libre_Baskerville({
   subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-serif",
+});
+
+const fontMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
-  title: "senara",
-  description: "senara",
+  title: "Senara — Platform Undangan Digital Interaktif",
+  description:
+    "Buat undangan digital pernikahan, khitanan, ulang tahun, dan syukuran yang hangat dan elegan dalam hitungan menit.",
 };
 
 export default function RootLayout({
@@ -29,14 +36,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="id" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable} font-sans antialiased`}
       >
         <ClerkProvider>
-          <Providers>
-            {children}
-          </Providers>
+          <Providers>{children}</Providers>
         </ClerkProvider>
       </body>
     </html>

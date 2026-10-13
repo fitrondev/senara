@@ -9,8 +9,14 @@ import { db } from "./services";
 
 type ClerkContextAuth = ApiContext["auth"];
 
-function toClerkContextAuth(auth: ClerkContextAuth): ClerkContextAuth {
-  return auth ? { userId: auth.userId } : null;
+function toClerkContextAuth(
+  auth: { userId: string | null; sessionClaims?: unknown } | null
+): ClerkContextAuth {
+  if (!auth?.userId) return null;
+  return {
+    userId: auth.userId,
+    sessionClaims: (auth.sessionClaims ?? null) as NonNullable<ClerkContextAuth>["sessionClaims"],
+  };
 }
 
 const clerkClient = createClerkClient({

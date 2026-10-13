@@ -46,14 +46,21 @@ export function HeaderAuth() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5 sm:gap-2">
       <SignInButton mode="modal">
-        <Button variant="ghost" size="sm" className="text-xs font-medium">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="hidden text-xs font-medium sm:inline-flex"
+        >
           Masuk
         </Button>
       </SignInButton>
       <SignUpButton mode="modal">
-        <Button size="sm" className="gap-1.5 text-xs font-semibold shadow-xs">
+        <Button
+          size="sm"
+          className="gap-1 px-2.5 text-xs font-semibold shadow-xs sm:gap-1.5 sm:px-3"
+        >
           <span>Mulai Gratis</span>
           <ArrowRight className="size-3.5" />
         </Button>

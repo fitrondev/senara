@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  Download,
   FileSpreadsheet,
   FileText,
   Loader2,
@@ -48,6 +49,12 @@ interface GuestImportDialogProps {
   invitationId: string;
 }
 
+const SAMPLE_CSV_CONTENT = `Nama Tamu,Nomor WhatsApp,Kategori
+Bpk. Budi Santoso & Keluarga,081234567890,Keluarga
+Ibu Siti Rahmawati,082198765432,VIP
+Ahmad Dahlan,085712345678,Teman Kantor
+Rina Kartika,081345678901,Sahabat`;
+
 export function GuestImportDialog({
   open,
   onOpenChange,
@@ -59,7 +66,6 @@ export function GuestImportDialog({
   const [parsedGuests, setParsedGuests] = useState<ParsedGuestItem[]>([]);
   const [activeTab, setActiveTab] = useState<string>("paste");
 
-  // Mutasi tRPC Batch Create
   const batchCreateMutation = useMutation(
     trpc.guest.batchCreate.mutationOptions({
       onSuccess: (data) => {
@@ -75,16 +81,17 @@ export function GuestImportDialog({
     })
   );
 
-  // Parser teks CSV / TSV / Format Baris
   const parseRows = (text: string) => {
-    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
     const results: ParsedGuestItem[] = [];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line) continue;
 
-      // Lewati baris header jika ada
       if (
         i === 0 &&
         (line.toLowerCase().includes("nama") ||
@@ -94,7 +101,6 @@ export function GuestImportDialog({
         continue;
       }
 
-      // Pisahkan berdasarkan koma, titik koma, atau tab
       const parts = line.split(/[,;\t]/).map((p) => p.trim());
       const name = parts[0];
       const phone = parts[1] || undefined;
@@ -133,6 +139,21 @@ export function GuestImportDialog({
     reader.readAsText(file);
   };
 
+  const handleDownloadSampleCsv = () => {
+    const blob = new Blob([SAMPLE_CSV_CONTENT], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "contoh-daftar-tamu-senara.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("Contoh berkas CSV berhasil diunduh.");
+  };
+
   const handleImportSubmit = () => {
     if (parsedGuests.length === 0) {
       toast.error("Tidak ada data tamu yang valid untuk diimpor.");
@@ -147,24 +168,41 @@ export function GuestImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <div className="rounded-md bg-primary/10 p-1.5 text-primary">
-              <FileSpreadsheet className="size-5" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="rounded-md bg-primary/10 p-1.5 text-primary">
+                <FileSpreadsheet className="size-5" />
+              </div>
+              <div>
+                <DialogTitle>Impor Massal Tamu (CSV / Teks)</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Unggah file CSV atau salin-tempel daftar tamu untuk mengimpor puluhan tamu
+                  sekaligus.
+                </DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle>Impor Massal Tamu Undangan</DialogTitle>
-              <DialogDescription className="text-xs">
-                Unggah file CSV atau salin-tempel baris data tamu untuk mengimpor puluhan tamu
-                sekaligus.
-              </DialogDescription>
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={handleDownloadSampleCsv}
+              className="shrink-0 gap-1.5 text-[11px]"
+            >
+              <Download className="size-3.5 text-primary" />
+              <span>Unduh Contoh CSV</span>
+            </Button>
           </div>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 text-left">
-          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val)}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(val) => {
+              if (val) setActiveTab(val);
+            }}
+          >
             <TabsList className="grid grid-cols-2">
               <TabsTrigger value="paste" className="gap-1.5 text-xs">
                 <FileText className="size-3.5" />
@@ -176,10 +214,9 @@ export function GuestImportDialog({
               </TabsTrigger>
             </TabsList>
 
-            {/* Tab: Salin-Tempel */}
             <TabsContent value="paste" className="flex flex-col gap-3 pt-2">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="paste-area" className="text-xs font-semibold">
+                <Label htmlFor="paste-area" className="font-semibold text-xs">
                   Tempel Baris Data (Format: Nama, No_HP, Kategori)
                 </Label>
                 <Textarea
@@ -191,41 +228,52 @@ export function GuestImportDialog({
                   className="font-mono text-xs"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Format per baris: <code>Nama, Nomor_WhatsApp, Kategori</code> (pisahkan dengan koma atau tab).
+                  Format per baris: <code>Nama, Nomor_WhatsApp, Kategori</code> (pisahkan dengan
+                  koma atau tab).
                 </p>
               </div>
             </TabsContent>
 
-            {/* Tab: Unggah File */}
             <TabsContent value="upload" className="flex flex-col gap-3 pt-2">
-              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-muted-foreground/30 p-8 text-center hover:bg-muted/10 transition-colors">
-                <Upload className="size-8 text-muted-foreground mb-2" />
-                <p className="font-semibold text-xs text-foreground">
+              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-muted-foreground/30 border-dashed p-8 text-center transition-colors hover:bg-muted/10">
+                <Upload className="mb-2 size-8 text-muted-foreground" />
+                <p className="font-semibold text-foreground text-xs">
                   Pilih berkas CSV atau teks
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
                   Mendukung berkas .csv dan .txt UTF-8
                 </p>
-                <label className="mt-4 cursor-pointer inline-flex">
-                  <Button size="sm" className="pointer-events-none">
-                    Pilih Berkas
+                <div className="mt-4 flex items-center gap-2">
+                  <label className="inline-flex cursor-pointer">
+                    <Button size="sm" className="pointer-events-none">
+                      Pilih Berkas CSV
+                    </Button>
+                    <input
+                      type="file"
+                      accept=".csv,.txt"
+                      onChange={handleFileUpload}
+                      className="sr-only"
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadSampleCsv}
+                    className="gap-1.5 text-xs"
+                  >
+                    <Download className="size-3.5" />
+                    <span>Contoh CSV</span>
                   </Button>
-                  <input
-                    type="file"
-                    accept=".csv,.txt"
-                    onChange={handleFileUpload}
-                    className="sr-only"
-                  />
-                </label>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
 
-          {/* Pratinjau Hasil Parsing */}
-          {parsedGuests.length > 0 && (
+          {parsedGuests.length > 0 ? (
             <div className="flex flex-col gap-2 rounded-xl border bg-muted/20 p-3">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-xs text-foreground">
+                <span className="font-semibold text-foreground text-xs">
                   Pratinjau Tamu ({parsedGuests.length} orang)
                 </span>
                 <Badge variant="secondary" className="text-[10px]">
@@ -238,30 +286,42 @@ export function GuestImportDialog({
                   <TableHeader className="bg-muted/50">
                     <TableRow>
                       <TableHead className="p-2 text-[10px] uppercase">#</TableHead>
-                      <TableHead className="p-2 text-[10px] uppercase">Nama Tamu</TableHead>
-                      <TableHead className="p-2 text-[10px] uppercase">No. WhatsApp</TableHead>
-                      <TableHead className="p-2 text-[10px] uppercase">Kategori</TableHead>
+                      <TableHead className="p-2 text-[10px] uppercase">
+                        Nama Tamu
+                      </TableHead>
+                      <TableHead className="p-2 text-[10px] uppercase">
+                        No. WhatsApp
+                      </TableHead>
+                      <TableHead className="p-2 text-[10px] uppercase">
+                        Kategori
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {parsedGuests.map((g, idx) => (
                       <TableRow key={idx} className="hover:bg-muted/20">
-                        <TableCell className="p-2 text-muted-foreground text-[10px]">{idx + 1}</TableCell>
-                        <TableCell className="p-2 font-medium text-foreground">{g.name}</TableCell>
-                        <TableCell className="p-2 text-muted-foreground font-mono text-[11px]">
+                        <TableCell className="p-2 text-[10px] text-muted-foreground">
+                          {idx + 1}
+                        </TableCell>
+                        <TableCell className="p-2 font-medium text-foreground">
+                          {g.name}
+                        </TableCell>
+                        <TableCell className="p-2 font-mono text-[11px] text-muted-foreground">
                           {g.phone || "-"}
                         </TableCell>
-                        <TableCell className="p-2 text-muted-foreground">{g.category || "-"}</TableCell>
+                        <TableCell className="p-2 text-muted-foreground">
+                          {g.category || "-"}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row items-center justify-between gap-2 border-t pt-3">
+        <DialogFooter className="flex-col items-center justify-between gap-2 border-t pt-3 sm:flex-row">
           <span className="text-[11px] text-muted-foreground">
             Total terdeteksi: <strong>{parsedGuests.length}</strong> tamu
           </span>
@@ -294,4 +354,3 @@ export function GuestImportDialog({
     </Dialog>
   );
 }
-

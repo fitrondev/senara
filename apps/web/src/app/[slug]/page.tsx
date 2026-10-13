@@ -1,21 +1,10 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import type { Route } from "next";
-import Image from "next/image";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import {
-  Calendar,
-  CreditCard,
-  Heart,
-  ImageIcon,
-  Loader2,
-  Lock,
-  MapPin,
-  MessageSquare,
-  Sparkles,
-} from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Eye, Loader2, Lock, Smartphone } from "lucide-react";
 
 import { Badge } from "@senara/ui/components/badge";
 import { Button } from "@senara/ui/components/button";
@@ -24,21 +13,15 @@ import {
   DEFAULT_THEME_CONFIG,
   type ThemeConfig,
 } from "@/components/editor/theme-modal";
-import { CountdownTimer } from "@/components/invitation/countdown-timer";
-import { CoverGate } from "@/components/invitation/cover-gate";
+import type { BankAccountItem } from "@/components/invitation/digital-gift-section";
+import type { EventScheduleItem } from "@/components/invitation/event-section";
+import type { PublicCustomContentItem } from "@/components/invitation/public-custom-content-slot";
 import {
-  DigitalGiftSection,
-  type BankAccountItem,
-} from "@/components/invitation/digital-gift-section";
-import {
-  EventSection,
-  type EventScheduleItem,
-} from "@/components/invitation/event-section";
-import {
-  PublicCustomContentSlot,
-  type PublicCustomContentItem,
-} from "@/components/invitation/public-custom-content-slot";
-import { RSVPSection } from "@/components/invitation/rsvp-section";
+  UnifiedInvitation,
+  type UnifiedGalleryItem,
+  type UnifiedSectionConfig,
+  type UnifiedStoryItem,
+} from "@/components/invitation/unified-invitation";
 import { trpc } from "@/utils/trpc";
 
 interface PublicInvitationPageProps {
@@ -47,7 +30,42 @@ interface PublicInvitationPageProps {
   }>;
   searchParams: Promise<{
     to?: string;
+    g?: string;
+    preview?: string;
   }>;
+}
+
+interface ExtendedThemeConfig extends ThemeConfig {
+  withPhotos?: boolean;
+  fields?: Record<string, string>;
+  fontSet?: string;
+  fontScale?: number;
+  scriptFont?: string;
+  musicStartAt?: number;
+}
+
+function getOrCreateDeviceFingerprint(): string {
+  if (typeof window === "undefined") return "server";
+  const storageKey = "senara_device_fp_v1";
+  try {
+    const existing = window.localStorage.getItem(storageKey);
+    if (existing) return existing;
+    const ua = window.navigator.userAgent || "ua";
+    const screenSig = `${window.screen?.width ?? 0}x${window.screen?.height ?? 0}`;
+    const randomPart = Math.random().toString(36).slice(2, 10);
+    const fp = `fp_${btoa(`${ua.slice(0, 32)}_${screenSig}`).replace(/[^a-zA-Z0-9]/g, "").slice(0, 16)}_${randomPart}`;
+    window.localStorage.setItem(storageKey, fp);
+    return fp;
+  } catch {
+    return "fp_fallback_browser";
+  }
+}
+
+function detectDeviceType(): "mobile" | "desktop" {
+  if (typeof window === "undefined") return "mobile";
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator.userAgent)
+    ? "mobile"
+    : "desktop";
 }
 
 export default function PublicInvitationPage({
@@ -58,9 +76,10 @@ export default function PublicInvitationPage({
   const resolvedSearchParams = use(searchParams);
 
   const slug = resolvedParams.slug;
+  const guestCode = resolvedSearchParams?.g;
+  const isOwnerPreview = resolvedSearchParams?.preview === "1";
 
-  // Personalisasi Tamu via query URL (?to=...)
-  const guestName = useMemo(() => {
+  const guestNameFromQuery = useMemo(() => {
     if (!resolvedSearchParams?.to) return undefined;
     try {
       return decodeURIComponent(resolvedSearchParams.to.replace(/\+/g, " "));
@@ -69,38 +88,131 @@ export default function PublicInvitationPage({
     }
   }, [resolvedSearchParams]);
 
-  // Ambil data undangan dari tRPC publik
   const {
     data: invitation,
     isLoading,
     isError,
   } = useQuery(trpc.invitation.getBySlugPublic.queryOptions({ slug }));
 
-  // State Cover Gate (Buka Undangan)
-  const [isCoverGateOpen, setIsCoverGateOpen] = useState(false);
+  const [accessState, setAccessState] = useState<{
+    checked: boolean;
+    allowed: boolean;
+    reason?: "PRIVATE_LOCKED" | "DEVICE_LIMIT_REACHED" | "PUBLIC_ALLOWED" | "GUEST_VERIFIED";
+    maxDevices?: number;
+    guestId?: string | null;
+    guestName?: string | null;
+    isGroupLink?: boolean;
+  }>({
+    checked: false,
+    allowed: true,
+  });
 
-  // Ambil Konfigurasi Tema
-  const themeConfig = useMemo<ThemeConfig>(() => {
+  const verifyMutation = useMutation(
+    trpc.invitation.verifyGuestDevice.mutationOptions({
+      onSuccess: (res) => {
+        setAccessState({
+          checked: true,
+          allowed: res.allowed,
+          reason: res.reason,
+          maxDevices: res.maxDevices,
+          guestId: res.guestId,
+          guestName: res.guestName,
+          isGroupLink: res.isGroupLink,
+        });
+      },
+      onError: () => {
+        setAccessState({ checked: true, allowed: true });
+      },
+    })
+  );
+
+  const hasSentBeaconRef = useRef(false);
+
+  // Verifikasi Mode Privat & Pembatasan Perangkat HP + Kirim Beacon Analitik
+  useEffect(() => {
+    if (!invitation?.id) return;
+
+    if (isOwnerPreview) {
+      setAccessState({
+        checked: true,
+        allowed: true,
+        guestId: guestCode ?? null,
+        guestName: guestNameFromQuery ?? null,
+      });
+      return;
+    }
+
+    const fp = getOrCreateDeviceFingerprint();
+    verifyMutation.mutate({
+      invitationId: invitation.id,
+      guestCode,
+      guestName: guestNameFromQuery,
+      deviceFingerprint: fp,
+    });
+  }, [invitation?.id, guestCode, guestNameFromQuery, isOwnerPreview]);
+
+  useEffect(() => {
+    if (
+      !invitation?.id ||
+      isOwnerPreview ||
+      !accessState.checked ||
+      !accessState.allowed ||
+      hasSentBeaconRef.current
+    ) {
+      return;
+    }
+
+    hasSentBeaconRef.current = true;
+    const fp = getOrCreateDeviceFingerprint();
+    const payload = JSON.stringify({
+      invitationId: invitation.id,
+      guestId: accessState.guestId ?? guestCode,
+      guestName: accessState.guestName ?? guestNameFromQuery,
+      deviceType: detectDeviceType(),
+      browser:
+        typeof navigator !== "undefined"
+          ? navigator.userAgent.slice(0, 60)
+          : "unknown",
+      deviceFingerprint: fp,
+    });
+
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      const blob = new Blob([payload], { type: "application/json" });
+      navigator.sendBeacon("/api/analytics/beacon", blob);
+    } else {
+      fetch("/api/analytics/beacon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {});
+    }
+  }, [
+    invitation?.id,
+    isOwnerPreview,
+    accessState.checked,
+    accessState.allowed,
+    accessState.guestId,
+    accessState.guestName,
+    guestCode,
+    guestNameFromQuery,
+  ]);
+
+  const themeConfig = useMemo<ExtendedThemeConfig>(() => {
     if (invitation?.themeConfig) {
-      return invitation.themeConfig as unknown as ThemeConfig;
+      return {
+        ...DEFAULT_THEME_CONFIG,
+        ...(invitation.themeConfig as unknown as Partial<ExtendedThemeConfig>),
+      };
     }
     return DEFAULT_THEME_CONFIG;
   }, [invitation?.themeConfig]);
 
-  // Pengecekan Visibilitas Section
-  const isSectionVisible = (sectionKey: string) => {
-    if (!invitation?.sections) return true;
-    const sec = invitation.sections.find((s) => s.sectionKey === sectionKey);
-    return sec ? sec.isVisible : true;
-  };
-
-  const customContents = (invitation?.customContents ?? []) as unknown as PublicCustomContentItem[];
-
-  if (isLoading) {
+  if (isLoading || (invitation?.isPrivateMode && !accessState.checked)) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-background">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-muted-foreground text-xs font-medium tracking-wide">
+        <p className="font-medium text-muted-foreground text-xs tracking-wide">
           Mempersiapkan undangan istimewa...
         </p>
       </div>
@@ -109,10 +221,13 @@ export default function PublicInvitationPage({
 
   if (isError || !invitation) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 p-6 text-center bg-background">
-        <h2 className="font-bold text-2xl text-foreground">Undangan Tidak Ditemukan</h2>
-        <p className="text-muted-foreground max-w-sm text-xs leading-relaxed">
-          Tautan undangan mungkin salah atau acara telah dinonaktifkan oleh penyelenggara.
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-background p-6 text-center">
+        <h2 className="font-bold text-2xl text-foreground">
+          Undangan Tidak Ditemukan
+        </h2>
+        <p className="max-w-sm text-muted-foreground text-xs leading-relaxed">
+          Tautan undangan mungkin salah atau acara telah dinonaktifkan oleh
+          penyelenggara.
         </p>
         <Button render={<Link href={"/" as Route} />} className="gap-2 text-xs">
           Kembali ke Senara
@@ -121,30 +236,75 @@ export default function PublicInvitationPage({
     );
   }
 
-  // Cek Status Undangan: EXPIRED
+  // Layar Mode Privat: Undangan Terkunci atau Batas Perangkat HP Tercapai (Task 13.3)
+  if (!accessState.allowed) {
+    const isDeviceLimit = accessState.reason === "DEVICE_LIMIT_REACHED";
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/30 p-6 text-center">
+        <div className="flex max-w-md flex-col items-center gap-4 rounded-3xl border bg-card p-8 shadow-xl">
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            {isDeviceLimit ? (
+              <Smartphone className="size-7" />
+            ) : (
+              <Lock className="size-7" />
+            )}
+          </div>
+          <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+            {isDeviceLimit ? "Batas Perangkat Tercapai" : "Mode Privat Aktif"}
+          </Badge>
+          <h2 className="font-serif font-bold text-foreground text-xl">
+            {isDeviceLimit
+              ? "Tautan Sudah Dibuka di Perangkat Lain"
+              : "Undangan Terkunci"}
+          </h2>
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            {isDeviceLimit ? (
+              <>
+                Tautan undangan pribadi untuk{" "}
+                <strong>{accessState.guestName || guestNameFromQuery}</strong>{" "}
+                dibatasi maksimal{" "}
+                <strong>{accessState.maxDevices ?? 2} perangkat HP</strong>. Jika
+                Anda berganti ponsel, silakan hubungi pengundang untuk menekan
+                tombol <strong>Reset HP</strong>.
+              </>
+            ) : (
+              <>
+                Undangan <strong>&ldquo;{invitation.title}&rdquo;</strong> ini
+                khusus untuk tamu yang diundang. Silakan buka menggunakan tautan
+                pribadi yang dikirimkan oleh penyelenggara acara melalui WhatsApp.
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (invitation.status === "EXPIRED") {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 p-6 text-center bg-background">
-        <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-background p-6 text-center">
+        <Badge
+          variant="outline"
+          className="border-amber-300 text-amber-600 text-xs"
+        >
           Acara Telah Selesai
         </Badge>
-        <h2 className="font-bold text-2xl text-foreground">{invitation.title}</h2>
-        <p className="text-muted-foreground max-w-sm text-xs leading-relaxed">
-          Masa tayang undangan ini telah berakhir. Terima kasih atas segala doa restu dan perhatian
-          yang telah diberikan kepada kami.
+        <h2 className="font-bold text-2xl text-foreground">
+          {invitation.title}
+        </h2>
+        <p className="max-w-sm text-muted-foreground text-xs leading-relaxed">
+          Masa tayang undangan ini telah berakhir. Terima kasih atas segala doa
+          restu dan perhatian yang telah diberikan kepada kami.
         </p>
       </div>
     );
   }
 
-  const coverImage =
-    invitation.coverImageUrl ||
-    invitation.template?.thumbnail ||
-    "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80";
+  const resolvedGuestName = accessState.guestName || guestNameFromQuery;
 
   return (
     <div
-      className="min-h-screen bg-zinc-950/5 flex justify-center selection:bg-primary selection:text-primary-foreground"
+      className="flex min-h-screen justify-center bg-zinc-950/5 selection:bg-primary selection:text-primary-foreground"
       style={
         {
           "--editor-primary": themeConfig.palette.primary,
@@ -155,332 +315,49 @@ export default function PublicInvitationPage({
         } as React.CSSProperties
       }
     >
-      {/* 1. Layar Gerbang Sampul & Kepatuhan Audio Autoplay (Cover Gate) */}
-      <CoverGate
-        title={invitation.title}
-        coverImageUrl={coverImage}
-        guestName={guestName}
-        eventDate={invitation.eventDate}
-        audioUrl={invitation.musicUrl}
-        isOpen={isCoverGateOpen}
-        onOpen={() => setIsCoverGateOpen(true)}
-        themeConfig={themeConfig}
-      />
+      {isOwnerPreview && resolvedGuestName ? (
+        <div className="fixed top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-primary/30 bg-background/95 px-4 py-1.5 text-xs shadow-lg backdrop-blur">
+          <Eye className="size-3.5 text-primary" />
+          <span className="font-medium text-foreground">
+            Tampilan untuk <strong>{resolvedGuestName}</strong>
+          </span>
+        </div>
+      ) : null}
 
-      {/* 2. Badan Konten Undangan (Wadah Mobile-First Terpusat) */}
-      <main
-        className="w-full max-w-md min-h-screen bg-background shadow-2xl relative text-center overflow-x-hidden"
-        style={{ fontFamily: themeConfig.typography.bodyFont }}
-      >
-        {/* Section 1: Hero / Sampul Depan */}
-        {isSectionVisible("hero") && (
-          <div
-            className="relative min-h-[520px] flex flex-col justify-end p-6 text-white overflow-hidden"
-            style={{ backgroundColor: themeConfig.palette.primary }}
-          >
-            <Image
-              src={coverImage}
-              alt={invitation.title}
-              fill
-              className="object-cover opacity-60"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-
-            <div className="relative z-10 flex flex-col items-center gap-2">
-              <Badge
-                variant="secondary"
-                className="text-[10px] bg-white/20 text-white backdrop-blur border-none uppercase tracking-widest px-3 py-1 font-semibold"
-              >
-                The Wedding of
-              </Badge>
-
-              <h1
-                className="font-bold text-3xl tracking-tight text-white leading-tight"
-                style={{ fontFamily: themeConfig.typography.headingFont }}
-              >
-                {invitation.title}
-              </h1>
-
-              <p className="text-white/80 text-xs mt-1 font-medium">
-                {invitation.eventDate
-                  ? new Intl.DateTimeFormat("id-ID", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    }).format(new Date(invitation.eventDate))
-                  : "Hari Bahagia Kami"}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Titik Jangkar Slot: after-hero */}
-        <PublicCustomContentSlot
-          slotId="after-hero"
-          items={customContents}
+      <main className="relative min-h-screen w-full max-w-md overflow-x-hidden bg-background shadow-2xl">
+        <UnifiedInvitation
+          invitationId={invitation.id}
+          templateSlug={invitation.template?.slug ?? "kartu-pos-vintage"}
+          title={invitation.title}
+          eventDate={invitation.eventDate}
+          coverImageUrl={
+            invitation.coverImageUrl || invitation.template?.thumbnail
+          }
+          musicUrl={invitation.musicUrl}
+          musicStartAt={themeConfig.musicStartAt ?? 0}
+          fontScale={themeConfig.fontScale ?? 1}
+          scriptFont={themeConfig.scriptFont}
           themeConfig={themeConfig}
+          sections={invitation.sections as unknown as UnifiedSectionConfig[]}
+          schedules={invitation.schedules as unknown as EventScheduleItem[]}
+          bankAccounts={invitation.bankAccounts as unknown as BankAccountItem[]}
+          galleries={invitation.galleries as unknown as UnifiedGalleryItem[]}
+          loveStories={invitation.loveStories as unknown as UnifiedStoryItem[]}
+          customContents={
+            (invitation.customContents ??
+              []) as unknown as PublicCustomContentItem[]
+          }
+          guestId={accessState.guestId ?? guestCode}
+          guestName={resolvedGuestName}
+          isGroupLink={accessState.isGroupLink ?? false}
+          resellerBrandName={invitation.user?.resellerBrandName}
+          resellerLogoUrl={invitation.user?.resellerLogoUrl}
+          withPhotos={themeConfig.withPhotos ?? true}
+          fields={themeConfig.fields ?? {}}
+          live
+          editing={false}
+          showCoverGateInitially
         />
-
-        {/* Section 2: Ayat Suci / Untaian Doa (Quote) */}
-        {isSectionVisible("quote") && (
-          <div className="flex flex-col gap-2 p-8 bg-muted/15 border-b">
-            <Heart className="size-4 text-primary mx-auto mb-1 opacity-70" />
-            <p className="text-xs italic text-muted-foreground leading-relaxed">
-              "Dan di antara tanda-tanda kekuasaan-Nya ialah Dia menciptakan untukmu isteri-isteri
-              dari jenismu sendiri, supaya kamu cenderung dan merasa tenteram kepadanya, dan
-              dijadikan-Nya diantaramu rasa kasih dan sayang."
-            </p>
-            <span className="text-[11px] font-semibold text-primary mt-1">— QS. Ar-Rum: 21</span>
-          </div>
-        )}
-
-        {/* Titik Jangkar Slot: after-quote */}
-        <PublicCustomContentSlot
-          slotId="after-quote"
-          items={customContents}
-          themeConfig={themeConfig}
-        />
-
-        {/* Section 3: Profil Mempelai (Couple Profile) */}
-        {isSectionVisible("couple") && (
-          <div
-            className="flex flex-col gap-6 p-8"
-            style={{ backgroundColor: themeConfig.palette.secondary }}
-          >
-            <div className="flex flex-col items-center gap-1">
-              <Badge
-                variant="outline"
-                className="text-[10px] uppercase tracking-wider text-primary border-primary/30"
-              >
-                Kedua Mempelai
-              </Badge>
-              <h2
-                className="font-bold text-2xl tracking-tight text-zinc-900 dark:text-zinc-100"
-                style={{ fontFamily: themeConfig.typography.headingFont }}
-              >
-                Mempelai yang Berbahagia
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <div className="flex flex-col items-center gap-2">
-                <div className="relative size-24 overflow-hidden rounded-full border-3 border-white shadow-lg">
-                  <Image
-                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80"
-                    alt="Mempelai Wanita"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <span
-                  className="font-bold text-base text-foreground mt-1"
-                  style={{ fontFamily: themeConfig.typography.headingFont }}
-                >
-                  Adinda Rahma
-                </span>
-                <span className="text-[11px] text-muted-foreground leading-tight">
-                  Putri dari Bpk. Hendra & Ibu Rina
-                </span>
-              </div>
-
-              <div className="flex flex-col items-center gap-2">
-                <div className="relative size-24 overflow-hidden rounded-full border-3 border-white shadow-lg">
-                  <Image
-                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80"
-                    alt="Mempelai Pria"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <span
-                  className="font-bold text-base text-foreground mt-1"
-                  style={{ fontFamily: themeConfig.typography.headingFont }}
-                >
-                  Bagas Pratama
-                </span>
-                <span className="text-[11px] text-muted-foreground leading-tight">
-                  Putra dari Bpk. Santoso & Ibu Dewi
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Titik Jangkar Slot: after-couple (Persistent Slot Rule) */}
-        <PublicCustomContentSlot
-          slotId="after-couple"
-          items={customContents}
-          themeConfig={themeConfig}
-        />
-
-        {/* Section 4: Rangkaian Acara (Event Schedule) & Hitung Mundur */}
-        {isSectionVisible("event") && (
-          <div>
-            <EventSection
-              schedules={invitation.schedules as unknown as EventScheduleItem[]}
-              themeConfig={themeConfig}
-            />
-
-            {invitation.eventDate && (
-              <div className="px-6 pb-6 bg-background">
-                <CountdownTimer
-                  targetDate={invitation.eventDate}
-                  themeConfig={themeConfig}
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Titik Jangkar Slot: after-event */}
-        <PublicCustomContentSlot
-          slotId="after-event"
-          items={customContents}
-          themeConfig={themeConfig}
-        />
-
-        {/* Section 5: Kisah Cinta (Love Story Timeline) */}
-        {isSectionVisible("love-story") && invitation.loveStories && invitation.loveStories.length > 0 && (
-          <div className="flex flex-col gap-5 p-8 bg-muted/15 border-t text-left">
-            <div className="flex flex-col items-center gap-1 text-center">
-              <Badge
-                variant="outline"
-                className="text-[10px] uppercase tracking-wider text-primary border-primary/30"
-              >
-                Perjalanan Cinta
-              </Badge>
-              <h3
-                className="font-bold text-2xl tracking-tight text-foreground"
-                style={{ fontFamily: themeConfig.typography.headingFont }}
-              >
-                Kisah Klasik Kami
-              </h3>
-            </div>
-
-            <div className="space-y-4 pt-2">
-              {invitation.loveStories.map((story) => (
-                <div
-                  key={story.id}
-                  className="border-l-2 border-primary/60 pl-4 py-1 text-xs relative"
-                >
-                  <span className="absolute -left-[5px] top-1.5 size-2 rounded-full bg-primary" />
-                  <p className="font-bold text-primary text-xs">{story.yearOrDate}</p>
-                  <p className="font-semibold text-foreground text-sm mt-0.5">{story.title}</p>
-                  <p className="text-muted-foreground mt-1 leading-relaxed">{story.story}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Titik Jangkar Slot: after-story */}
-        <PublicCustomContentSlot
-          slotId="after-story"
-          items={customContents}
-          themeConfig={themeConfig}
-        />
-
-        {/* Section 6: Galeri Foto & Video */}
-        {isSectionVisible("gallery") && invitation.galleries && invitation.galleries.length > 0 && (
-          <div className="flex flex-col gap-5 p-8 bg-background border-t">
-            <div className="flex flex-col items-center gap-1 text-center">
-              <Badge
-                variant="outline"
-                className="text-[10px] uppercase tracking-wider text-primary border-primary/30"
-              >
-                Dokumentasi
-              </Badge>
-              <h3
-                className="font-bold text-2xl tracking-tight text-foreground"
-                style={{ fontFamily: themeConfig.typography.headingFont }}
-              >
-                Potret Kenangan
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 pt-2">
-              {invitation.galleries.map((item) => (
-                <div
-                  key={item.id}
-                  className="relative aspect-square overflow-hidden rounded-xl border bg-muted shadow-2xs group"
-                >
-                  <Image
-                    src={item.mediaUrl}
-                    alt={item.caption || "Foto Kenangan"}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Titik Jangkar Slot: after-gallery */}
-        <PublicCustomContentSlot
-          slotId="after-gallery"
-          items={customContents}
-          themeConfig={themeConfig}
-        />
-
-        {/* Section 7: Amplop Digital & QRIS */}
-        {isSectionVisible("gift") && (
-          <DigitalGiftSection
-            bankAccounts={invitation.bankAccounts as unknown as BankAccountItem[]}
-            themeConfig={themeConfig}
-          />
-        )}
-
-        {/* Titik Jangkar Slot: after-gift */}
-        <PublicCustomContentSlot
-          slotId="after-gift"
-          items={customContents}
-          themeConfig={themeConfig}
-        />
-
-        {/* Section 8: RSVP & Buku Tamu */}
-        {isSectionVisible("rsvp") && (
-          <RSVPSection
-            invitationId={invitation.id}
-            initialGuestName={guestName}
-            themeConfig={themeConfig}
-          />
-        )}
-
-        {/* Titik Jangkar Slot: before-footer */}
-        <PublicCustomContentSlot
-          slotId="before-footer"
-          items={customContents}
-          themeConfig={themeConfig}
-        />
-
-        {/* Section 9: Salam Penutup */}
-        {isSectionVisible("closing") && (
-          <div className="p-8 bg-background border-t text-xs text-muted-foreground flex flex-col items-center gap-3">
-            <p className="leading-relaxed max-w-xs">
-              Merupakan suatu kehormatan dan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i
-              berkenan hadir dan memberikan doa restu kepada kedua mempelai.
-            </p>
-            <p
-              className="font-bold text-base text-foreground"
-              style={{ fontFamily: themeConfig.typography.headingFont }}
-            >
-              {invitation.title}
-            </p>
-          </div>
-        )}
-
-        {/* Watermark Senara Footer */}
-        <footer className="p-6 bg-muted/30 border-t text-center text-[11px] text-muted-foreground flex flex-col items-center gap-1">
-          <p className="flex items-center gap-1 font-semibold text-foreground/80">
-            <Sparkles className="size-3 text-primary" />
-            <span>Senara Invitation Platform</span>
-          </p>
-          <p className="text-[10px] text-muted-foreground/70">
-            Dibuat dengan cinta untuk momen terindah hidup Anda.
-          </p>
-        </footer>
       </main>
     </div>
   );

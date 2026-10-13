@@ -2,9 +2,9 @@ import { type Prisma } from "@senara/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { protectedProcedure, router } from "../index";
+import { protectedProcedure, router } from "../trpc";
 
-// Skema validasi terperinci untuk 8 tipe konten "Isian Kamu"
+// Skema validasi terperinci untuk 8 tipe konten "Seksi Kustom"
 export const titleContentSchema = z.object({
   title: z.string().min(1, "Judul tidak boleh kosong"),
   align: z.enum(["left", "center", "right"]).optional(),
@@ -185,7 +185,7 @@ export const customContentRouter = router({
       if (!existingItem) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Item isian kustom tidak ditemukan.",
+          message: "Blok seksi kustom tidak ditemukan.",
         });
       }
 

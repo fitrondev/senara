@@ -17,6 +17,7 @@ export function createPrismaClient(env: DatabaseConfig) {
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: url.pathname.slice(1),
+    allowPublicKeyRetrieval: true,
   };
 
   const adapter = new PrismaMariaDb(connectionConfig);

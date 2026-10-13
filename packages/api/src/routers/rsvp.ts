@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { protectedProcedure, publicProcedure, router } from "../index";
+import { protectedProcedure, publicProcedure, router } from "../trpc";
 
 /**
  * Sanitasi string masukan dari tag HTML, entitas berbahaya, dan URI berbahaya (XSS prevention)
@@ -31,7 +31,6 @@ export const rsvpRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Periksa apakah undangan ada dan aktif
       const invitation = await ctx.db.invitation.findUnique({
         where: { id: input.invitationId },
         select: { id: true, status: true },
@@ -44,15 +43,27 @@ export const rsvpRouter = router({
         });
       }
 
-      // Sanitasi input pengguna untuk mencegah serangan XSS
       const cleanGuestName = sanitizeText(input.guestName);
       const cleanMessage = input.message ? sanitizeText(input.message) : null;
 
-      // Buat respon RSVP
+      let resolvedGuestId = input.guestId ?? null;
+      if (!resolvedGuestId) {
+        const matchedGuest = await ctx.db.guest.findFirst({
+          where: {
+            invitationId: input.invitationId,
+            name: input.guestName.trim(),
+          },
+          select: { id: true },
+        });
+        if (matchedGuest) {
+          resolvedGuestId = matchedGuest.id;
+        }
+      }
+
       const response = await ctx.db.rSVPResponse.create({
         data: {
           invitationId: input.invitationId,
-          guestId: input.guestId ?? null,
+          guestId: resolvedGuestId,
           guestName: cleanGuestName,
           attendance: input.attendance,
           guestCount: input.guestCount,

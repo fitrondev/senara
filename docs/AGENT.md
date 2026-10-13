@@ -35,30 +35,41 @@ Sebelum mengambil keputusan arsitektur atau menulis kode baru, selalu rujuk doku
 
 ## 🛡️ Aturan Utama Agen (Golden Guardrails)
 
-### 1. Hormati Batas Paket Monorepo (*Respect Boundaries*)
+### 1. Protokol Anti-Halusinasi (*Zero Hallucination Policy*)
+- 🚫 **Dilarang mengarang (halusinasi)** nama fungsi, prosedur tRPC, kolom Prisma, variabel `.env`, prop komponen, atau paket npm yang belum diperiksa di dalam codebase.
+- ✅ Selalu baca berkas target, skema Prisma, router tRPC, dan definisi komponen di `@senara/ui` sebelum menulis atau memodifikasi kode.
+- ✅ Perhatikan kontrak Base UI (`base-lyra`) pada `@senara/ui`: gunakan `render={<Link />}` pada `Button` (bukan `asChild`), dan pastikan tipe parameter `onValueChange` pada `Select`/`Slider`/`Tabs` sesuai.
+
+### 2. Arsitektur Modular, Reusable & Anti-God-File (*DRY Principle*)
+- 🚫 **Dilarang membuat file monolitik panjang (*God File* > 250–300 baris)** yang menumpuk halaman utama, sub-komponen, modal/dialog, form, tabel, dan fungsi helper dalam 1 berkas.
+- ✅ Pecah fitur atau halaman besar menjadi modul-modul terfokus (`*-section.tsx`, `*-modal.tsx`, `*-dialog.tsx`, `*-table.tsx`, `*-constants.ts`, `*-types.ts`).
+- ✅ Gunakan komponen bersama yang reusable di `apps/web/src/components/shared/` (`PageHeader`, `StatCard`, `EmptyState`, `ConfirmDeleteDialog`, `SearchFilterBar`) serta utilitas format terpusat di `apps/web/src/lib/format.ts` (`formatCurrency`, `formatDate`, `formatDateTime`).
+
+### 3. Hormati Batas Paket Monorepo (*Respect Boundaries*)
 - 🚫 **Dilarang** memanggil Prisma langsung di komponen Next.js (`apps/web`). Gunakan tRPC procedure di `packages/api`.
 - 🚫 **Dilarang** menaruh logika bisnis atau query SQL di dalam `packages/ui`. Paket UI hanya berisi primitif tampilan dan varian Tailwind.
-- 🚫 **Dilarang** membuat komponen UI dasar (tombol, dialog, input) secara mentah dari tag HTML di `apps/web` jika sudah tersedia di `@senara/ui`.
+- 🚫 **Dilarang** membuat komponen UI dasar (tombol, dialog, select, slider, tabs, toast) secara mentah dari tag HTML di `apps/web` jika sudah tersedia di `@senara/ui`.
 
-### 2. Strict Type Safety — Zero `any`
+### 4. Strict Type Safety — Zero `any`
 - Selalu gunakan inferensi tipe dari Prisma Client, tRPC Router (`AppRouter`), atau skema Zod.
 - Jangan gunakan `any` atau `// @ts-ignore` kecuali tidak ada alternatif lain dan telah disertakan alasan jelas dalam komentar.
 
-### 3. Pencegahan Kerentanan IDOR (Insecure Direct Object Reference)
+### 5. Pencegahan Kerentanan IDOR (Insecure Direct Object Reference)
 - Setiap kali menulis mutasi untuk data undangan, section, atau tamu, **wajib** menyertakan verifikasi kepemilikan akun:
   ```typescript
   where: { id: input.invitationId, userId: ctx.auth.userId }
   ```
 - Jangan pernah mengizinkan pengguna memutasi atau menghapus undangan milik pengguna lain.
 
-### 4. Kepatuhan Vercel React Best Practices
-- **Eliminasi Waterfall:** Hindari `await` berurutan yang independen; gunakan `Promise.all()` atau `<Suspense>`.
+### 6. Kepatuhan Vercel React Best Practices
+- **Eliminasi Waterfall (`async-parallel`):** Hindari `await` berurutan yang independen; gunakan `Promise.all()` atau `<Suspense>`.
 - **RSC by Default:** Pertahankan layout dan container sebagai Server Component; dorong `"use client"` ke leaf nodes interaktif terendah.
-- **Hoist Static Data:** Hoist array/objek statis (seperti link navigasi, konfigurasi font) ke tingkat modul di luar fungsi render.
-- **Conditional Rendering:** Gunakan operator ternary (`condition ? <Component /> : null`), hindari `condition && <Component />`.
-- **Bundle Optimization:** Hindari barrel imports masif dan muat modul devtools/analitik secara kondisional.
+- **Dynamic Imports (`bundle-dynamic-imports`):** Gunakan `next/dynamic` untuk komponen modal/dialog berat yang hanya dirender secara kondisional.
+- **Hoist Static Data (`server-hoist-static-io`):** Hoist array/objek statis (seperti link navigasi, opsi filter, konfigurasi font) ke tingkat modul di luar fungsi render.
+- **Conditional Rendering (`rendering-conditional-render`):** Gunakan operator ternary (`condition ? <Component /> : null`), hindari `condition && <Component />`.
+- **No Inline Components (`rerender-no-inline-components`):** Jangan mendeklarasikan komponen React di dalam fungsi komponen lain.
 
-### 5. Siklus Eksekusi & Verifikasi Wajib
+### 7. Siklus Eksekusi & Verifikasi Wajib
 Setiap kali menyelesaikan tugas atau memodifikasi berkas kode:
 1. Pastikan kode tidak memutus fungsi yang sudah ada.
 2. Jalankan pemeriksaan tipe terminal:

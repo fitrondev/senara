@@ -5,8 +5,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
   ArrowUp,
-  Eye,
-  EyeOff,
   GripVertical,
   Layers,
   Lock,
@@ -56,6 +54,8 @@ export function SectionReorderModal({
 }: SectionReorderModalProps) {
   const queryClient = useQueryClient();
   const [localSections, setLocalSections] = useState<EditorSectionItem[]>([]);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   useEffect(() => {
     // Urutkan berdasarkan sortOrder saat props sections berubah
@@ -66,13 +66,13 @@ export function SectionReorderModal({
   const reorderMutation = useMutation(
     trpc.section.reorderAndToggle.mutationOptions({
       onSuccess: () => {
-        toast.success("Urutan dan visibilitas section berhasil disimpan");
+        toast.success("Urutan dan visibilitas layout berhasil disimpan");
         queryClient.invalidateQueries(
           trpc.invitation.getById.queryFilter({ id: invitationId })
         );
       },
       onError: (err) => {
-        toast.error(err.message || "Gagal menyimpan urutan section");
+        toast.error(err.message || "Gagal menyimpan urutan layout");
       },
     })
   );
@@ -98,7 +98,6 @@ export function SectionReorderModal({
     items[index - 1] = items[index]!;
     items[index] = temp;
 
-    // Normalisasi sortOrder
     const normalized = items.map((item, idx) => ({
       ...item,
       sortOrder: idx,
@@ -120,10 +119,30 @@ export function SectionReorderModal({
     saveBatch(normalized);
   };
 
+  const handleDrop = (dropIndex: number) => {
+    if (draggedIdx === null || draggedIdx === dropIndex) {
+      setDraggedIdx(null);
+      setDragOverIdx(null);
+      return;
+    }
+    const items = [...localSections];
+    const [moved] = items.splice(draggedIdx, 1);
+    if (!moved) return;
+    items.splice(dropIndex, 0, moved);
+
+    const normalized = items.map((item, idx) => ({
+      ...item,
+      sortOrder: idx,
+    }));
+    saveBatch(normalized);
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
   const handleToggleVisible = (id: string, isVisible: boolean) => {
     const updated = localSections.map((item) => {
       if (item.id === id) {
-        if (item.isLocked) return item; // Section yang terkunci wajib tampil
+        if (item.isLocked) return item; // Layout yang terkunci wajib tampil
         return { ...item, isVisible };
       }
       return item;
@@ -137,11 +156,10 @@ export function SectionReorderModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="text-primary size-5" />
-            <span>Urutan & Visibilitas Section</span>
+            <span>Urutan & Visibilitas Layout</span>
           </DialogTitle>
           <DialogDescription>
-            Atur susunan vertikal bagian undangan dan aktifkan/sembunyikan
-            bagian tertentu.
+            Tarik & geser (drag & drop) untuk mengatur susunan layout undangan, atau gunakan tombol panah dan toggle aktif.
           </DialogDescription>
         </DialogHeader>
 
@@ -149,20 +167,59 @@ export function SectionReorderModal({
           {localSections.map((section, index) => {
             const isFirst = index === 0;
             const isLast = index === localSections.length - 1;
+            const isDragging = draggedIdx === index;
+            const isOver = dragOverIdx === index;
 
             return (
               <Card
                 key={section.id}
+                draggable
+                onDragStart={(e) => {
+                  setDraggedIdx(index);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(index));
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (dragOverIdx !== index) {
+                    setDragOverIdx(index);
+                  }
+                }}
+                onDragLeave={() => {
+                  if (dragOverIdx === index) {
+                    setDragOverIdx(null);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  handleDrop(index);
+                }}
+                onDragEnd={() => {
+                  setDraggedIdx(null);
+                  setDragOverIdx(null);
+                }}
                 className={cn(
-                  "flex flex-row items-center justify-between gap-3 p-3 transition-colors",
-                  section.isVisible
-                    ? "bg-card border-border"
+                  "flex select-none flex-row items-center justify-between gap-3 p-3 transition-all duration-150",
+                  isDragging
+                    ? "opacity-40 border-dashed border-primary scale-[0.98]"
+                    : isOver
+                    ? "border-primary ring-2 ring-primary/30 bg-primary/5 scale-[1.01]"
+                    : section.isVisible
+                    ? "bg-card border-border hover:border-primary/50"
                     : "bg-muted/40 border-border/70 border-dashed opacity-70"
                 )}
               >
-                {/* Informasi Section & Nomor Urut */}
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <div className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-md text-xs font-semibold">
+                {/* Grip Handle, Nomor Urut & Informasi Layout */}
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <div
+                    className="cursor-grab active:cursor-grabbing text-muted-foreground/60 hover:text-foreground touch-none pr-0.5 transition-colors"
+                    title="Tarik untuk memindahkan urutan"
+                  >
+                    <GripVertical className="size-4" />
+                  </div>
+
+                  <div className="bg-muted text-muted-foreground flex size-6 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold">
                     {index + 1}
                   </div>
 
@@ -189,11 +246,11 @@ export function SectionReorderModal({
 
                 {/* Kontrol Aksi: Panah Geser & Switch Toggle */}
                 <div className="flex shrink-0 items-center gap-2">
-                  <div className="bg-background flex items-center rounded-md border">
+                  <div className="bg-background flex items-center rounded-md border shadow-xs">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-7 rounded-none rounded-l-md"
+                      className="size-7 rounded-none rounded-l-md hover:bg-muted"
                       disabled={isFirst || reorderMutation.isPending}
                       onClick={() => handleMoveUp(index)}
                       title="Geser ke Atas"
@@ -203,7 +260,7 @@ export function SectionReorderModal({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-7 rounded-none rounded-r-md border-l"
+                      className="size-7 rounded-none rounded-r-md border-l hover:bg-muted"
                       disabled={isLast || reorderMutation.isPending}
                       onClick={() => handleMoveDown(index)}
                       title="Geser ke Bawah"
@@ -222,10 +279,10 @@ export function SectionReorderModal({
                       disabled={section.isLocked || reorderMutation.isPending}
                       title={
                         section.isLocked
-                          ? "Bagian ini wajib ditampilkan"
+                          ? "Layout ini wajib ditampilkan"
                           : section.isVisible
-                            ? "Sembunyikan bagian ini"
-                            : "Tampilkan bagian ini"
+                            ? "Sembunyikan layout ini"
+                            : "Tampilkan layout ini"
                       }
                     />
                   </div>

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { protectedProcedure, router } from "../index";
+import { protectedProcedure, publicProcedure, router } from "../trpc";
 
 export const guestRouter = router({
   list: protectedProcedure
@@ -13,12 +13,12 @@ export const guestRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      // Validasi kepemilikan undangan (IDOR Protection)
       const invitation = await ctx.db.invitation.findFirst({
         where: {
           id: input.invitationId,
           userId: ctx.auth.userId,
         },
+        select: { id: true },
       });
 
       if (!invitation) {
@@ -28,7 +28,7 @@ export const guestRouter = router({
         });
       }
 
-      return ctx.db.guest.findMany({
+      const items = await ctx.db.guest.findMany({
         where: {
           invitationId: input.invitationId,
           ...(input.category ? { category: input.category } : {}),
@@ -39,13 +39,17 @@ export const guestRouter = router({
             orderBy: {
               createdAt: "desc",
             },
-            take: 1,
           },
         },
-        orderBy: {
-          name: "asc",
-        },
+        orderBy: [{ isGroupLink: "desc" }, { name: "asc" }],
       });
+
+      return items.map((g) => ({
+        ...g,
+        deviceFingerprints: Array.isArray(g.deviceFingerprints)
+          ? (g.deviceFingerprints as string[])
+          : [],
+      }));
     }),
 
   batchCreate: protectedProcedure
@@ -59,6 +63,7 @@ export const guestRouter = router({
               phone: z.string().max(30).optional(),
               category: z.string().max(50).optional(),
               customSlug: z.string().max(100).optional(),
+              isGroupLink: z.boolean().optional(),
             })
           )
           .min(1, "Minimal 1 data tamu diperlukan"),
@@ -70,6 +75,7 @@ export const guestRouter = router({
           id: input.invitationId,
           userId: ctx.auth.userId,
         },
+        select: { id: true },
       });
 
       if (!invitation) {
@@ -84,8 +90,9 @@ export const guestRouter = router({
           invitationId: input.invitationId,
           name: g.name.trim(),
           phone: g.phone?.trim() ?? null,
-          category: g.category?.trim() ?? null,
+          category: g.category?.trim() ?? (g.isGroupLink ? "Grup" : null),
           customSlug: g.customSlug?.trim() ?? null,
+          isGroupLink: g.isGroupLink ?? false,
         })),
       });
 
@@ -104,6 +111,7 @@ export const guestRouter = router({
         phone: z.string().max(30).nullish(),
         category: z.string().max(50).nullish(),
         customSlug: z.string().max(100).nullish(),
+        isGroupLink: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -112,6 +120,7 @@ export const guestRouter = router({
           id: input.invitationId,
           userId: ctx.auth.userId,
         },
+        select: { id: true },
       });
 
       if (!invitation) {
@@ -121,7 +130,7 @@ export const guestRouter = router({
         });
       }
 
-      return ctx.db.guest.update({
+      const updated = await ctx.db.guest.update({
         where: {
           id: input.id,
         },
@@ -130,8 +139,16 @@ export const guestRouter = router({
           ...(input.phone !== undefined ? { phone: input.phone?.trim() ?? null } : {}),
           ...(input.category !== undefined ? { category: input.category?.trim() ?? null } : {}),
           ...(input.customSlug !== undefined ? { customSlug: input.customSlug?.trim() ?? null } : {}),
+          ...(typeof input.isGroupLink === "boolean" ? { isGroupLink: input.isGroupLink } : {}),
         },
       });
+
+      return {
+        ...updated,
+        deviceFingerprints: Array.isArray(updated.deviceFingerprints)
+          ? (updated.deviceFingerprints as string[])
+          : [],
+      };
     }),
 
   delete: protectedProcedure
@@ -147,6 +164,7 @@ export const guestRouter = router({
           id: input.invitationId,
           userId: ctx.auth.userId,
         },
+        select: { id: true },
       });
 
       if (!invitation) {
@@ -183,6 +201,7 @@ export const guestRouter = router({
           id: input.invitationId,
           userId: ctx.auth.userId,
         },
+        select: { id: true },
       });
 
       if (!invitation) {
@@ -192,7 +211,7 @@ export const guestRouter = router({
         });
       }
 
-      return ctx.db.guest.update({
+      const updated = await ctx.db.guest.update({
         where: {
           id: input.id,
         },
@@ -201,6 +220,96 @@ export const guestRouter = router({
           sentWaAt: input.isSentWa ? new Date() : null,
         },
       });
+
+      return {
+        ...updated,
+        deviceFingerprints: Array.isArray(updated.deviceFingerprints)
+          ? (updated.deviceFingerprints as string[])
+          : [],
+      };
+    }),
+
+  resetDevices: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        invitationId: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const invitation = await ctx.db.invitation.findFirst({
+        where: {
+          id: input.invitationId,
+          userId: ctx.auth.userId,
+        },
+        select: { id: true },
+      });
+
+      if (!invitation) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Undangan tidak ditemukan atau Anda tidak memiliki hak akses.",
+        });
+      }
+
+      const updated = await ctx.db.guest.update({
+        where: {
+          id: input.id,
+        },
+        data: {
+          deviceFingerprints: [],
+        },
+      });
+
+      return {
+        ...updated,
+        deviceFingerprints: [] as string[],
+      };
+    }),
+
+  resolvePublicGuest: publicProcedure
+    .input(
+      z.object({
+        invitationId: z.string().min(1),
+        guestCode: z.string().optional(),
+        guestName: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      if (input.guestCode) {
+        const byCode = await ctx.db.guest.findFirst({
+          where: {
+            invitationId: input.invitationId,
+            OR: [{ id: input.guestCode }, { customSlug: input.guestCode }],
+          },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            isGroupLink: true,
+            viewCount: true,
+          },
+        });
+        if (byCode) return byCode;
+      }
+
+      if (input.guestName) {
+        const byName = await ctx.db.guest.findFirst({
+          where: {
+            invitationId: input.invitationId,
+            name: input.guestName.trim(),
+          },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            isGroupLink: true,
+            viewCount: true,
+          },
+        });
+        if (byName) return byName;
+      }
+
+      return null;
     }),
 });
-

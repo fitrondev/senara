@@ -8,14 +8,14 @@ import {
   Loader2,
   MessageSquare,
   Send,
-  Users,
+  UsersRound,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@senara/ui/components/badge";
 import { Button } from "@senara/ui/components/button";
-import { Card, CardContent } from "@senara/ui/components/card";
+import { Card } from "@senara/ui/components/card";
 import {
   Empty,
   EmptyDescription,
@@ -24,7 +24,13 @@ import {
 } from "@senara/ui/components/empty";
 import { Input } from "@senara/ui/components/input";
 import { Label } from "@senara/ui/components/label";
-import { NativeSelect, NativeSelectOption } from "@senara/ui/components/native-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@senara/ui/components/select";
 import { Textarea } from "@senara/ui/components/textarea";
 import {
   ToggleGroup,
@@ -33,31 +39,37 @@ import {
 import { cn } from "@senara/ui/lib/utils";
 
 import type { ThemeConfig } from "@/components/editor/theme-modal";
+import { formatDateTime } from "@/lib/format";
 import { trpc } from "@/utils/trpc";
 
 interface RSVPSectionProps {
   invitationId: string;
+  guestId?: string;
   initialGuestName?: string;
+  isGroupLink?: boolean;
   themeConfig: ThemeConfig;
 }
 
+const PAX_OPTIONS = ["1", "2", "3", "4", "5"] as const;
+
 export function RSVPSection({
   invitationId,
+  guestId,
   initialGuestName = "",
+  isGroupLink = false,
   themeConfig,
 }: RSVPSectionProps) {
   const queryClient = useQueryClient();
 
-  // Form State
-  const [guestName, setGuestName] = useState(initialGuestName);
-  const [attendance, setAttendance] = useState<"ATTENDING" | "NOT_ATTENDING" | "UNCERTAIN">(
-    "ATTENDING"
+  const [guestName, setGuestName] = useState(
+    isGroupLink ? "" : initialGuestName
   );
+  const [attendance, setAttendance] = useState<
+    "ATTENDING" | "NOT_ATTENDING" | "UNCERTAIN"
+  >("ATTENDING");
   const [guestCount, setGuestCount] = useState<number>(1);
   const [message, setMessage] = useState("");
-  const [isSubmittedSuccess, setIsSubmittedSuccess] = useState(false);
 
-  // Ambil Daftar Ucapan dari tRPC (Real-Time)
   const { data: rsvpData, isLoading: isLoadingWishes } = useQuery(
     trpc.rsvp.listByInvitation.queryOptions({
       invitationId,
@@ -65,20 +77,24 @@ export function RSVPSection({
     })
   );
 
-  // Mutasi Submit RSVP
   const submitMutation = useMutation(
     trpc.rsvp.submit.mutationOptions({
       onSuccess: () => {
-        toast.success("Terima kasih! Konfirmasi kehadiran dan ucapan Anda berhasil dikirim.");
-        setIsSubmittedSuccess(true);
+        toast.success(
+          "Terima kasih! Konfirmasi kehadiran dan ucapan Anda berhasil dikirim."
+        );
         setMessage("");
-        // Invalidate query agar dinding ucapan langsung terupdate seketika
+        if (isGroupLink) {
+          setGuestName("");
+        }
         queryClient.invalidateQueries(
           trpc.rsvp.listByInvitation.queryFilter({ invitationId })
         );
       },
       onError: (err) => {
-        toast.error(err.message || "Gagal mengirim RSVP. Silakan coba kembali.");
+        toast.error(
+          err.message || "Gagal mengirim RSVP. Silakan coba kembali."
+        );
       },
     })
   );
@@ -92,6 +108,7 @@ export function RSVPSection({
 
     submitMutation.mutate({
       invitationId,
+      guestId,
       guestName: guestName.trim(),
       attendance,
       guestCount,
@@ -102,12 +119,11 @@ export function RSVPSection({
   const wishes = rsvpData?.items ?? [];
 
   return (
-    <div className="flex flex-col gap-6 p-6 bg-background border-t">
-      {/* Header Bagian */}
+    <div className="flex flex-col gap-6 border-t bg-background p-6">
       <div className="flex flex-col items-center gap-1.5 text-center">
         <Badge
           variant="outline"
-          className="text-[10px] uppercase tracking-wider text-primary border-primary/30"
+          className="border-primary/30 text-[10px] text-primary tracking-wider uppercase"
         >
           Konfirmasi Kehadiran
         </Badge>
@@ -117,31 +133,43 @@ export function RSVPSection({
         >
           RSVP & Buku Doa
         </h3>
-        <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-          Merupakan suatu kehormatan bagi kami apabila Anda berkenan hadir dan memberikan doa restu.
+        <p className="max-w-xs text-muted-foreground text-xs leading-relaxed">
+          Merupakan suatu kehormatan bagi kami apabila Anda berkenan hadir dan
+          memberikan doa restu.
         </p>
       </div>
 
-      {/* Form RSVP */}
       <Card className="p-5 text-left shadow-xs">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* 1. Nama Lengkap Tamu */}
+          {isGroupLink && initialGuestName ? (
+            <div className="flex items-center gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-3 py-2 text-xs">
+              <UsersRound className="size-4 shrink-0 text-indigo-600" />
+              <span className="text-muted-foreground">
+                Grup: <strong className="text-foreground">{initialGuestName}</strong>.
+                Silakan ketik nama pribadi Anda di bawah ini.
+              </span>
+            </div>
+          ) : null}
+
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="rsvp-name" className="text-xs font-semibold">
+            <Label htmlFor="rsvp-name" className="font-semibold text-xs">
               Nama Lengkap <span className="text-destructive">*</span>
             </Label>
             <Input
               id="rsvp-name"
-              placeholder="Ketik nama Anda..."
+              placeholder={
+                isGroupLink
+                  ? "Ketik nama pribadi Anda (Anggota Grup)..."
+                  : "Ketik nama Anda..."
+              }
               value={guestName}
               onChange={(e) => setGuestName(e.target.value)}
               required
             />
           </div>
 
-          {/* 2. Pilihan Status Kehadiran */}
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs font-semibold">
+            <Label className="font-semibold text-xs">
               Konfirmasi Kehadiran <span className="text-destructive">*</span>
             </Label>
             <ToggleGroup
@@ -149,90 +177,94 @@ export function RSVPSection({
               onValueChange={(val) => {
                 const first = val[0];
                 if (first) {
-                  setAttendance(first as "ATTENDING" | "NOT_ATTENDING" | "UNCERTAIN");
+                  setAttendance(
+                    first as "ATTENDING" | "NOT_ATTENDING" | "UNCERTAIN"
+                  );
                 }
               }}
               variant="outline"
-              className="grid grid-cols-3 gap-2 w-full"
+              className="grid w-full grid-cols-3 gap-2"
             >
               <ToggleGroupItem
                 value="ATTENDING"
                 className={cn(
-                  "flex flex-col items-center justify-center p-2.5 text-xs h-auto",
+                  "flex h-auto flex-col items-center justify-center p-2.5 text-xs",
                   attendance === "ATTENDING" &&
-                    "border-emerald-600 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200 font-semibold shadow-xs"
+                    "border-emerald-600 bg-emerald-50 font-semibold text-emerald-800 shadow-xs dark:bg-emerald-950/40 dark:text-emerald-200"
                 )}
               >
-                <CheckCircle2 className="size-4 text-emerald-600 mb-1" />
+                <CheckCircle2 className="mb-1 size-4 text-emerald-600" />
                 <span>Hadir</span>
               </ToggleGroupItem>
 
               <ToggleGroupItem
                 value="NOT_ATTENDING"
                 className={cn(
-                  "flex flex-col items-center justify-center p-2.5 text-xs h-auto",
+                  "flex h-auto flex-col items-center justify-center p-2.5 text-xs",
                   attendance === "NOT_ATTENDING" &&
-                    "border-rose-600 bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-200 font-semibold shadow-xs"
+                    "border-rose-600 bg-rose-50 font-semibold text-rose-800 shadow-xs dark:bg-rose-950/40 dark:text-rose-200"
                 )}
               >
-                <XCircle className="size-4 text-rose-600 mb-1" />
+                <XCircle className="mb-1 size-4 text-rose-600" />
                 <span>Tidak Hadir</span>
               </ToggleGroupItem>
 
               <ToggleGroupItem
                 value="UNCERTAIN"
                 className={cn(
-                  "flex flex-col items-center justify-center p-2.5 text-xs h-auto",
+                  "flex h-auto flex-col items-center justify-center p-2.5 text-xs",
                   attendance === "UNCERTAIN" &&
-                    "border-amber-600 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200 font-semibold shadow-xs"
+                    "border-amber-600 bg-amber-50 font-semibold text-amber-800 shadow-xs dark:bg-amber-950/40 dark:text-amber-200"
                 )}
               >
-                <HelpCircle className="size-4 text-amber-600 mb-1" />
+                <HelpCircle className="mb-1 size-4 text-amber-600" />
                 <span>Masih Ragu</span>
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
 
-          {/* 3. Jumlah Tamu (Jika Hadir) */}
-          {attendance === "ATTENDING" && (
+          {attendance === "ATTENDING" ? (
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="rsvp-count" className="text-xs font-semibold">
-                Jumlah Tamu
-              </Label>
-              <NativeSelect
-                id="rsvp-count"
+              <Label className="font-semibold text-xs">Jumlah Tamu</Label>
+              <Select
                 value={String(guestCount)}
-                onChange={(e) => setGuestCount(Number(e.target.value))}
-                className="w-full"
+                onValueChange={(val) => {
+                  if (val) setGuestCount(Number(val));
+                }}
               >
-                <NativeSelectOption value="1">1 Orang</NativeSelectOption>
-                <NativeSelectOption value="2">2 Orang</NativeSelectOption>
-                <NativeSelectOption value="3">3 Orang</NativeSelectOption>
-                <NativeSelectOption value="4">4 Orang</NativeSelectOption>
-                <NativeSelectOption value="5">5 Orang</NativeSelectOption>
-              </NativeSelect>
+                <SelectTrigger className="w-full text-xs">
+                  <SelectValue placeholder="Pilih jumlah orang">
+                    {`${guestCount} Orang`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {PAX_OPTIONS.map((num) => (
+                    <SelectItem key={num} value={num}>
+                      {num} Orang
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
+          ) : null}
 
-          {/* 4. Doa & Ucapan */}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="rsvp-msg" className="text-xs font-semibold">
+            <Label htmlFor="rsvp-msg" className="font-semibold text-xs">
               Untaian Doa & Ucapan Selamat
             </Label>
             <Textarea
               id="rsvp-msg"
               rows={3}
-              placeholder="Tuliskan ucapan selamat dan doa restu untuk kedua mempelai..."
+              placeholder="Tuliskan ucapan selamat dan doa restu..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
             />
           </div>
 
-          {/* Tombol Kirim */}
           <Button
             type="submit"
             disabled={submitMutation.isPending}
-            className="w-full h-10 gap-2 font-semibold shadow-xs"
+            className="h-10 w-full gap-2 font-semibold shadow-xs"
           >
             {submitMutation.isPending ? (
               <>
@@ -249,12 +281,13 @@ export function RSVPSection({
         </form>
       </Card>
 
-      {/* Dinding Ucapan & Doa Tamu (Wall of Wishes) */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between border-b pb-2">
           <div className="flex items-center gap-2">
             <MessageSquare className="size-4 text-primary" />
-            <h4 className="font-bold text-sm text-foreground">Dinding Doa & Ucapan</h4>
+            <h4 className="font-bold text-foreground text-sm">
+              Dinding Doa & Ucapan
+            </h4>
           </div>
           <Badge variant="secondary" className="text-[10px]">
             {wishes.length} Pesan
@@ -268,7 +301,7 @@ export function RSVPSection({
         ) : wishes.length === 0 ? (
           <Empty className="rounded-xl border border-dashed p-6">
             <EmptyHeader>
-              <EmptyTitle className="text-xs font-medium text-foreground">
+              <EmptyTitle className="font-medium text-foreground text-xs">
                 Belum ada ucapan
               </EmptyTitle>
               <EmptyDescription className="text-[11px] text-muted-foreground">
@@ -277,59 +310,54 @@ export function RSVPSection({
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="flex flex-col gap-2.5 max-h-[420px] overflow-y-auto pr-1">
-            {wishes.map((item) => {
-              const dateFormatted = new Intl.DateTimeFormat("id-ID", {
-                day: "numeric",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit",
-              }).format(new Date(item.createdAt));
-
-              return (
-                <Card
-                  key={item.id}
-                  className="gap-1.5 p-3.5 text-left shadow-2xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-xs text-foreground">{item.guestName}</span>
-                      <Badge
-                        variant={
-                          item.attendance === "ATTENDING"
-                            ? "default"
-                            : item.attendance === "NOT_ATTENDING"
-                              ? "destructive"
-                              : "secondary"
-                        }
-                        className={cn(
-                          "text-[9px] px-1.5 py-0 h-4",
-                          item.attendance === "ATTENDING" && "bg-emerald-600 text-white"
-                        )}
-                      >
-                        {item.attendance === "ATTENDING"
-                          ? `Hadir (${item.guestCount})`
+          <div className="flex max-h-[420px] flex-col gap-2.5 overflow-y-auto pr-1">
+            {wishes.map((item) => (
+              <Card
+                key={item.id}
+                className="gap-1.5 p-3.5 text-left shadow-2xs"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-foreground text-xs">
+                      {item.guestName}
+                    </span>
+                    <Badge
+                      variant={
+                        item.attendance === "ATTENDING"
+                          ? "default"
                           : item.attendance === "NOT_ATTENDING"
-                            ? "Tidak Hadir"
-                            : "Ragu"}
-                      </Badge>
-                    </div>
-
-                    <span className="text-[10px] text-muted-foreground">{dateFormatted}</span>
+                            ? "destructive"
+                            : "secondary"
+                      }
+                      className={cn(
+                        "h-4 px-1.5 py-0 text-[9px]",
+                        item.attendance === "ATTENDING" &&
+                          "bg-emerald-600 text-white"
+                      )}
+                    >
+                      {item.attendance === "ATTENDING"
+                        ? `Hadir (${item.guestCount})`
+                        : item.attendance === "NOT_ATTENDING"
+                          ? "Tidak Hadir"
+                          : "Ragu"}
+                    </Badge>
                   </div>
 
-                  {item.message ? (
-                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line mt-0.5">
-                      {item.message}
-                    </p>
-                  ) : null}
-                </Card>
-              );
-            })}
+                  <span className="text-[10px] text-muted-foreground">
+                    {formatDateTime(item.createdAt)}
+                  </span>
+                </div>
+
+                {item.message ? (
+                  <p className="mt-0.5 whitespace-pre-line text-muted-foreground text-xs leading-relaxed">
+                    {item.message}
+                  </p>
+                ) : null}
+              </Card>
+            ))}
           </div>
         )}
       </div>
     </div>
   );
 }
-
