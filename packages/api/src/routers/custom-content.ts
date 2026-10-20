@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { protectedProcedure, router } from "../trpc";
+import { assertInvitationOwnership } from "../utils/invitation-guard";
 
 // Skema validasi terperinci untuk 8 tipe konten "Seksi Kustom"
 export const titleContentSchema = z.object({
@@ -93,19 +94,7 @@ export const customContentRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       // Validasi kepemilikan undangan (IDOR Protection)
-      const invitation = await ctx.db.invitation.findFirst({
-        where: {
-          id: input.invitationId,
-          userId: ctx.auth.userId,
-        },
-      });
-
-      if (!invitation) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Undangan tidak ditemukan atau Anda tidak memiliki akses.",
-        });
-      }
+      await assertInvitationOwnership(ctx.db, input.invitationId, ctx.auth.userId);
 
       // Validasi struktur payload berdasarkan tipe konten
       const validatedPayload = validateContentPayload(input.type, input.content);
@@ -148,6 +137,80 @@ export const customContentRouter = router({
         ...created,
         content: validatedPayload,
       };
+    }),
+
+  addBatch: protectedProcedure
+    .input(
+      z.object({
+        invitationId: z.string().min(1),
+        slotId: z.string().min(1),
+        items: z.array(
+          z.object({
+            type: z.enum([
+              "TITLE",
+              "TEXT",
+              "PHOTO",
+              "VIDEO",
+              "BUTTON",
+              "LINK",
+              "YOUTUBE",
+              "MAP",
+            ]),
+            content: z.record(z.string(), z.unknown()),
+            isVisible: z.boolean().default(true),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Validasi kepemilikan undangan (IDOR Protection)
+      await assertInvitationOwnership(ctx.db, input.invitationId, ctx.auth.userId);
+
+      if (input.items.length === 0) {
+        return [];
+      }
+
+      // Ambil sortOrder terakhir pada slot yang dituju
+      const lastItem = await ctx.db.invitationCustomContent.findFirst({
+        where: {
+          invitationId: input.invitationId,
+          slotId: input.slotId,
+        },
+        orderBy: {
+          sortOrder: "desc",
+        },
+      });
+      const baseOrder = lastItem ? lastItem.sortOrder + 1 : 0;
+
+      // Jalankan dalam $transaction agar atomik
+      const createdItems = await ctx.db.$transaction(
+        input.items.map((item, idx) => {
+          const validatedPayload = validateContentPayload(
+            item.type,
+            item.content
+          );
+          return ctx.db.invitationCustomContent.create({
+            data: {
+              invitationId: input.invitationId,
+              slotId: input.slotId,
+              type: item.type,
+              sortOrder: baseOrder + idx,
+              content: validatedPayload as Prisma.InputJsonValue,
+              isVisible: item.isVisible ?? true,
+            },
+            select: {
+              id: true,
+              invitationId: true,
+              slotId: true,
+              type: true,
+              sortOrder: true,
+              isVisible: true,
+            },
+          });
+        })
+      );
+
+      return createdItems;
     }),
 
   update: protectedProcedure
@@ -233,19 +296,7 @@ export const customContentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const invitation = await ctx.db.invitation.findFirst({
-        where: {
-          id: input.invitationId,
-          userId: ctx.auth.userId,
-        },
-      });
-
-      if (!invitation) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Undangan tidak ditemukan atau Anda tidak memiliki akses.",
-        });
-      }
+      await assertInvitationOwnership(ctx.db, input.invitationId, ctx.auth.userId);
 
       await ctx.db.$transaction(
         input.items.map((item) =>
@@ -276,19 +327,7 @@ export const customContentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const invitation = await ctx.db.invitation.findFirst({
-        where: {
-          id: input.invitationId,
-          userId: ctx.auth.userId,
-        },
-      });
-
-      if (!invitation) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Undangan tidak ditemukan atau Anda tidak memiliki akses.",
-        });
-      }
+      await assertInvitationOwnership(ctx.db, input.invitationId, ctx.auth.userId);
 
       await ctx.db.invitationCustomContent.deleteMany({
         where: {
@@ -311,19 +350,7 @@ export const customContentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const invitation = await ctx.db.invitation.findFirst({
-        where: {
-          id: input.invitationId,
-          userId: ctx.auth.userId,
-        },
-      });
-
-      if (!invitation) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Undangan tidak ditemukan atau Anda tidak memiliki akses.",
-        });
-      }
+      await assertInvitationOwnership(ctx.db, input.invitationId, ctx.auth.userId);
 
       const deleted = await ctx.db.invitationCustomContent.deleteMany({
         where: {

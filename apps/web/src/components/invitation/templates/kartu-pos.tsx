@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Mail, Stamp } from "lucide-react";
 
-import { EditableField, EditableRegion, GuestHint } from "../primitives";
+import { EditableField, EditableImage, EditableRegion, GuestHint } from "../primitives";
 import { useEditContext } from "../edit-context";
 
 export interface TemplateThemePreset {
@@ -123,15 +123,17 @@ export function KartuPosHeroBanner({
           </div>
 
           {/* Bagian Tengah: Foto Prangko atau Ilustrasi Monogram */}
-          <div className="my-5 flex flex-col items-center">
+          <div className="my-5 flex w-full flex-col items-center">
             {withPhotos ? (
               <div className="relative aspect-[4/3] w-full max-w-[250px] rotate-1 border-[6px] border-dotted border-[#D8C7A8] bg-white p-2 shadow-md">
                 <div className="relative h-full w-full overflow-hidden">
-                  <Image
+                  <EditableImage
                     src={coverImageUrl}
                     alt={title}
                     fill
                     className="object-cover sepia-[0.15]"
+                    field="coverImageUrl"
+                    label="Foto Sampul Kartu Pos"
                   />
                 </div>
               </div>
@@ -151,7 +153,7 @@ export function KartuPosHeroBanner({
               />
             </p>
 
-            <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight text-[#2C221E]">
+            <h1 className="mt-1 w-full font-serif text-3xl font-bold tracking-tight text-[#2C221E]">
               <EditableField field="title" fallback={title} />
             </h1>
 

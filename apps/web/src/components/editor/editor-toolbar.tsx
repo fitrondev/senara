@@ -9,6 +9,7 @@ import {
   Eye,
   Globe,
   Layers,
+  LayoutTemplate,
   Loader2,
   Music,
   Palette,
@@ -45,6 +46,7 @@ export interface EditorToolbarProps {
   onOpenMusicModal: () => void;
   onOpenPhotoFramer: () => void;
   onOpenCustomContent: () => void;
+  onOpenLayoutLibrary?: () => void;
   onOpenThemePalette: () => void;
   onOpenReorderModal: () => void;
 }
@@ -66,6 +68,7 @@ export function EditorToolbar({
   onOpenMusicModal,
   onOpenPhotoFramer,
   onOpenCustomContent,
+  onOpenLayoutLibrary,
   onOpenThemePalette,
   onOpenReorderModal,
 }: EditorToolbarProps) {
@@ -201,6 +204,17 @@ export function EditorToolbar({
         >
           <Crop className="size-3.5 text-amber-500" />
           <span className="hidden lg:inline">Foto</span>
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onOpenLayoutLibrary}
+          className="gap-1.5 border-primary/40 bg-primary/5 text-primary hover:bg-primary hover:text-primary-foreground"
+          title="Pustaka Galeri Layout Halaman"
+        >
+          <LayoutTemplate className="size-3.5" />
+          <span className="hidden sm:inline">Pilih Layout</span>
         </Button>
 
         <Button

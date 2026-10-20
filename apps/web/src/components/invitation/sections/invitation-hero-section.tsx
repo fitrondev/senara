@@ -9,10 +9,12 @@ import type { ThemeConfig } from "@/components/editor/theme-modal";
 
 import {
   EditableField,
+  EditableImage,
   EditableRegion,
   GuestHint,
   SectionSwitch,
 } from "../primitives";
+import { AutumnSerenityHeroBanner } from "../templates/autumn-serenity";
 import { BlushConfettiHeroBanner } from "../templates/blush-confetti";
 import { CrescentLinenHeroBanner } from "../templates/crescent-linen";
 import { JawaBiruHeroBanner } from "../templates/jawa-biru";
@@ -43,6 +45,15 @@ export function InvitationHeroSection({
   editing,
 }: InvitationHeroSectionProps) {
   const renderBanner = () => {
+    if (templateSlug.includes("autumn-serenity")) {
+      return (
+        <AutumnSerenityHeroBanner
+          title={title}
+          coverImageUrl={coverImageUrl}
+          eventDateFormatted={eventDateFormatted}
+        />
+      );
+    }
     if (templateSlug.includes("kartu-pos")) {
       return (
         <KartuPosHeroBanner
@@ -88,20 +99,23 @@ export function InvitationHeroSection({
         >
           {withPhotos ? (
             <>
-              <Image
+              <EditableImage
                 src={coverImageUrl}
                 alt={title}
                 fill
-                className="object-cover opacity-65"
                 priority
+                className="object-cover opacity-65"
+                containerClassName="absolute inset-0"
+                field="coverImageUrl"
+                label="Foto Sampul Utama"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900" />
           )}
 
-          <div className="relative z-10 flex flex-col items-center gap-2 text-center">
+          <div className="relative z-10 flex w-full flex-col items-center gap-2 text-center">
             <Badge
               variant="secondary"
               className="border-none bg-white/20 px-3 py-1 text-[10px] font-semibold tracking-widest text-white uppercase backdrop-blur"
@@ -113,7 +127,7 @@ export function InvitationHeroSection({
             </Badge>
 
             <h1
-              className="text-3xl leading-tight font-bold tracking-tight text-white"
+              className="w-full text-3xl leading-tight font-bold tracking-tight text-white"
               style={{ fontFamily: themeConfig.typography.headingFont }}
             >
               <EditableField field="title" fallback={title} />

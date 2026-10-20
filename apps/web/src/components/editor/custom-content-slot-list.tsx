@@ -1,22 +1,30 @@
 "use client";
 
-import type * as React from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
-  ArrowDown,
-  ArrowUp,
-  Edit2,
-  Heading,
-  Image as ImageIcon,
-  Link2,
-  MapPin,
-  MousePointerClick,
-  Trash2,
-  Type,
-  Video,
-} from "lucide-react";
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  pointerWithin,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { Loader2, MoveDown } from "lucide-react";
 
-import { Badge } from "@senara/ui/components/badge";
-import { Button } from "@senara/ui/components/button";
 import {
   Empty,
   EmptyDescription,
@@ -24,312 +32,317 @@ import {
   EmptyTitle,
 } from "@senara/ui/components/empty";
 import { Label } from "@senara/ui/components/label";
-import { Switch } from "@senara/ui/components/switch";
 import { cn } from "@senara/ui/lib/utils";
 
-import type { CustomContentType } from "./custom-content-forms";
 import type { CustomContentItemData } from "./custom-content-modal";
+import {
+  DraggablePaletteItem,
+  PaletteItemPreview,
+} from "./custom-content-palette-item";
+import {
+  SortableCustomContentItem,
+  SortableItemPreview,
+} from "./custom-content-sortable-item";
+import {
+  CONTENT_TYPE_OPTIONS,
+  type ContentTypeOption,
+  type CustomContentType,
+} from "./custom-content-types";
 
-function YoutubeIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="24"
-      height="24"
-      fill="currentColor"
-      {...props}
-    >
-      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-    </svg>
-  );
-}
-
-const CONTENT_TYPE_OPTIONS: readonly {
-  type: CustomContentType;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  iconColorClass: string;
-}[] = [
-  {
-    type: "TITLE",
-    label: "+ Judul",
-    icon: Heading,
-    iconColorClass: "text-primary",
-  },
-  {
-    type: "TEXT",
-    label: "+ Teks",
-    icon: Type,
-    iconColorClass: "text-blue-500",
-  },
-  {
-    type: "PHOTO",
-    label: "+ Foto",
-    icon: ImageIcon,
-    iconColorClass: "text-emerald-500",
-  },
-  {
-    type: "VIDEO",
-    label: "+ Video",
-    icon: Video,
-    iconColorClass: "text-purple-500",
-  },
-  {
-    type: "BUTTON",
-    label: "+ Tombol",
-    icon: MousePointerClick,
-    iconColorClass: "text-amber-500",
-  },
-  {
-    type: "LINK",
-    label: "+ Tautan",
-    icon: Link2,
-    iconColorClass: "text-cyan-500",
-  },
-  {
-    type: "YOUTUBE",
-    label: "+ YouTube",
-    icon: YoutubeIcon,
-    iconColorClass: "text-red-500",
-  },
-  {
-    type: "MAP",
-    label: "+ Peta Lokasi",
-    icon: MapPin,
-    iconColorClass: "text-rose-500",
-  },
-] as const;
-
-function renderItemSummary(item: CustomContentItemData) {
-  const content = (item.content as Record<string, unknown>) || {};
-  switch (item.type) {
-    case "TITLE":
-      return (
-        <div className="flex items-center gap-2">
-          <Heading className="size-4 shrink-0 text-primary" />
-          <span className="truncate text-sm font-semibold">
-            {(content.title as string) || "Judul Tanpa Nama"}
-          </span>
-        </div>
-      );
-    case "TEXT":
-      return (
-        <div className="flex items-center gap-2">
-          <Type className="size-4 shrink-0 text-blue-500" />
-          <span className="line-clamp-1 truncate text-xs text-muted-foreground">
-            {(content.text as string) || "Teks paragraf..."}
-          </span>
-        </div>
-      );
-    case "PHOTO":
-      return (
-        <div className="flex items-center gap-2">
-          <ImageIcon className="size-4 shrink-0 text-emerald-500" />
-          <span className="truncate text-xs">
-            {(content.caption as string) ||
-              (content.imageUrl as string) ||
-              "Foto"}
-          </span>
-        </div>
-      );
-    case "VIDEO":
-      return (
-        <div className="flex items-center gap-2">
-          <Video className="size-4 shrink-0 text-purple-500" />
-          <span className="truncate text-xs">
-            {(content.videoUrl as string) || "Video Clip"}
-          </span>
-        </div>
-      );
-    case "BUTTON":
-      return (
-        <div className="flex items-center gap-2">
-          <MousePointerClick className="size-4 shrink-0 text-amber-500" />
-          <span className="truncate text-xs font-medium">
-            {(content.label as string) || "Tombol CTA"}
-          </span>
-        </div>
-      );
-    case "LINK":
-      return (
-        <div className="flex items-center gap-2">
-          <Link2 className="size-4 shrink-0 text-cyan-500" />
-          <span className="truncate text-xs">
-            {(content.label as string) || "Tautan"}
-          </span>
-        </div>
-      );
-    case "YOUTUBE":
-      return (
-        <div className="flex items-center gap-2">
-          <YoutubeIcon className="size-4 shrink-0 text-red-500" />
-          <span className="truncate text-xs">
-            {(content.youtubeUrl as string) || "YouTube Video"}
-          </span>
-        </div>
-      );
-    case "MAP":
-      return (
-        <div className="flex items-center gap-2">
-          <MapPin className="size-4 shrink-0 text-rose-500" />
-          <span className="truncate text-xs font-medium">
-            {(content.locationName as string) || "Lokasi Peta"}
-          </span>
-        </div>
-      );
-    default:
-      return (
-        <span className="text-xs text-muted-foreground">Blok Layout Kustom</span>
-      );
-  }
-}
-
-interface CustomContentSlotListProps {
+export interface CustomContentSlotListProps {
   slotItems: CustomContentItemData[];
   isReordering: boolean;
+  isAdding?: boolean;
   onMoveOrder: (index: number, direction: "up" | "down") => void;
+  onReorderItems?: (newItems: CustomContentItemData[]) => void;
   onToggleVisible: (itemId: string, currentVisible: boolean) => void;
   onEditItem: (item: CustomContentItemData) => void;
   onDeleteItem: (item: CustomContentItemData) => void;
-  onCreateType: (type: CustomContentType) => void;
+  onAddDirectly: (type: CustomContentType, targetIndex?: number) => void;
 }
 
 export function CustomContentSlotList({
   slotItems,
   isReordering,
+  isAdding = false,
   onMoveOrder,
+  onReorderItems,
   onToggleVisible,
   onEditItem,
   onDeleteItem,
-  onCreateType,
+  onAddDirectly,
 }: CustomContentSlotListProps) {
+  const [activePaletteOption, setActivePaletteOption] =
+    useState<ContentTypeOption | null>(null);
+  const [activeSortableItem, setActiveSortableItem] =
+    useState<CustomContentItemData | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const hasDraggedRef = useRef(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const collisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      // Prioritaskan sortable item spesifik jika ada
+      const sortableCollision = pointerCollisions.find(
+        (c) => c.id !== "custom-content-slot-dropzone"
+      );
+      if (sortableCollision) {
+        return [
+          sortableCollision,
+          ...pointerCollisions.filter((c) => c.id !== sortableCollision.id),
+        ];
+      }
+      return pointerCollisions;
+    }
+    return closestCenter(args);
+  };
+
+  const { setNodeRef: setDropZoneRef } = useDroppable({
+    id: "custom-content-slot-dropzone",
+    data: { isSlotDropZone: true },
+  });
+
+  const handleDragStart = (event: DragStartEvent) => {
+    hasDraggedRef.current = true;
+    const { active } = event;
+    const activeData = active.data.current;
+
+    if (activeData?.isNewComponent) {
+      const option = CONTENT_TYPE_OPTIONS.find(
+        (opt) => opt.type === activeData.type
+      );
+      if (option) setActivePaletteOption(option);
+    } else if (activeData?.isSortableItem) {
+      setActiveSortableItem(activeData.item as CustomContentItemData);
+    }
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    setOverId(event.over ? String(event.over.id) : null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    const activeData = active.data.current;
+
+    setActivePaletteOption(null);
+    setActiveSortableItem(null);
+    setOverId(null);
+
+    setTimeout(() => {
+      hasDraggedRef.current = false;
+    }, 200);
+
+    if (!over) return;
+
+    // Skenario 1: Menarik komponen baru langsung masuk ke daftar blok
+    if (activeData?.isNewComponent) {
+      const type = activeData.type as CustomContentType;
+      let targetIndex = slotItems.length;
+
+      if (over.id !== "custom-content-slot-dropzone") {
+        const overIndex = slotItems.findIndex((item) => item.id === over.id);
+        if (overIndex !== -1) {
+          targetIndex = overIndex;
+        }
+      }
+
+      onAddDirectly(type, targetIndex);
+      return;
+    }
+
+    // Skenario 2: Mengubah urutan blok yang sudah ada
+    if (activeData?.isSortableItem && over.id !== active.id) {
+      const oldIndex = slotItems.findIndex((item) => item.id === active.id);
+      const newIndex = slotItems.findIndex((item) => item.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const reordered = arrayMove(slotItems, oldIndex, newIndex);
+        if (onReorderItems) {
+          onReorderItems(reordered);
+        } else {
+          onMoveOrder(oldIndex, newIndex > oldIndex ? "down" : "up");
+        }
+      }
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActivePaletteOption(null);
+    setActiveSortableItem(null);
+    setOverId(null);
+    setTimeout(() => {
+      hasDraggedRef.current = false;
+    }, 200);
+  };
+
+  const isDraggingNew = Boolean(activePaletteOption);
+  const isOverSlotArea = Boolean(
+    overId &&
+      (overId === "custom-content-slot-dropzone" ||
+        slotItems.some((item) => item.id === overId))
+  );
+
   return (
-    <>
-      <div className="flex flex-col gap-2">
-        <Label className="text-xs font-semibold text-foreground">
-          Daftar Blok di Posisi Ini:
-        </Label>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={collisionDetection}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <div className="flex w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold text-foreground">
+            Daftar Blok di Posisi Ini:
+          </Label>
+          <span
+            className={cn(
+              "text-[11px] transition-colors",
+              isDraggingNew
+                ? "font-semibold text-primary"
+                : "text-muted-foreground"
+            )}
+          >
+            {isDraggingNew
+              ? isOverSlotArea
+                ? "✨ Lepaskan mouse untuk meletakkan blok"
+                : "Arahkan mouse ke area daftar"
+              : "Tarik baris ☰ untuk atur urutan"}
+          </span>
+        </div>
 
-        {slotItems.length === 0 ? (
-          <Empty className="rounded-xl border border-dashed border-muted-foreground/30 p-6">
-            <EmptyHeader>
-              <EmptyTitle className="text-xs font-medium text-foreground">
-                Posisi ini masih kosong
-              </EmptyTitle>
-              <EmptyDescription className="text-[11px] text-muted-foreground">
-                Pilih salah satu tombol tipe konten di bawah untuk mulai
-                menyisipkan blok layout kustom.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {slotItems.map((item, idx) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "flex items-center justify-between rounded-lg border p-3 transition-colors",
-                  item.isVisible ? "bg-card" : "bg-muted/40 opacity-60"
-                )}
-              >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <Badge
-                    variant="secondary"
-                    className="flex size-6 shrink-0 items-center justify-center rounded-full p-0 text-[10px]"
-                  >
-                    {idx + 1}
-                  </Badge>
+        {/* Zona Droppable Daftar Blok Tanpa Pergeseran Layout */}
+        <div
+          ref={setDropZoneRef}
+          className={cn(
+            "relative w-full min-w-0 max-w-full rounded-xl p-1.5 transition-all duration-150 overflow-hidden border-2",
+            isDraggingNew
+              ? isOverSlotArea
+                ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                : "border-dashed border-primary/40 bg-primary/5"
+              : "border-transparent"
+          )}
+        >
+          {isAdding ? (
+            <div className="mb-2 flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/10 py-2.5 text-xs font-medium text-primary">
+              <Loader2 className="size-3.5 animate-spin" />
+              <span>Menambahkan blok baru ke daftar...</span>
+            </div>
+          ) : null}
 
-                  <div className="min-w-0 flex-1">
-                    {renderItemSummary(item)}
-                  </div>
+          {slotItems.length === 0 ? (
+            <Empty
+              className={cn(
+                "w-full rounded-xl border-2 border-dashed p-6 transition-colors",
+                isDraggingNew
+                  ? isOverSlotArea
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-primary/40 bg-primary/5"
+                  : "border-muted-foreground/30"
+              )}
+            >
+              <EmptyHeader>
+                <div className="mx-auto mb-1 flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <MoveDown className="size-4.5" />
                 </div>
-
-                <div className="ml-2 flex shrink-0 items-center gap-1.5">
-                  <div className="flex items-center rounded border bg-background p-0.5">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => onMoveOrder(idx, "up")}
-                      disabled={idx === 0 || isReordering}
-                      title="Geser Naik"
-                      className="size-5 rounded-none"
-                    >
-                      <ArrowUp className="size-3" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => onMoveOrder(idx, "down")}
-                      disabled={idx === slotItems.length - 1 || isReordering}
-                      title="Geser Turun"
-                      className="size-5 rounded-none"
-                    >
-                      <ArrowDown className="size-3" />
-                    </Button>
-                  </div>
-
-                  <div title={item.isVisible ? "Tampilkan" : "Sembunyikan"}>
-                    <Switch
-                      checked={item.isVisible}
-                      onCheckedChange={() =>
-                        onToggleVisible(item.id, item.isVisible)
-                      }
-                      size="sm"
-                    />
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-7 text-muted-foreground hover:text-foreground"
-                    onClick={() => onEditItem(item)}
-                    title="Edit Komponen"
-                  >
-                    <Edit2 className="size-3" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-7 text-destructive hover:bg-destructive/10"
-                    onClick={() => onDeleteItem(item)}
-                    title="Hapus Komponen"
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                </div>
+                <EmptyTitle className="text-xs font-medium text-foreground">
+                  {isDraggingNew
+                    ? isOverSlotArea
+                      ? "Lepaskan di sini!"
+                      : "Arahkan ke sini"
+                    : "Posisi ini masih kosong"}
+                </EmptyTitle>
+                <EmptyDescription className="text-[11px] text-muted-foreground">
+                  {isDraggingNew
+                    ? `Lepaskan mouse untuk langsung menyisipkan blok ${activePaletteOption?.label}.`
+                    : "Tarik (drag) salah satu komponen di bawah ke sini untuk menambahkan ke daftar."}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <SortableContext
+              items={slotItems.map((item) => item.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="flex w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden">
+                {slotItems.map((item, idx) => (
+                  <SortableCustomContentItem
+                    key={item.id}
+                    item={item}
+                    index={idx}
+                    totalCount={slotItems.length}
+                    isReordering={isReordering}
+                    onMoveOrder={onMoveOrder}
+                    onToggleVisible={onToggleVisible}
+                    onEditItem={onEditItem}
+                    onDeleteItem={onDeleteItem}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2 border-t pt-2">
-        <Label className="text-xs font-semibold text-foreground">
-          Tambah Komponen Baru ke Slot Ini:
-        </Label>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {CONTENT_TYPE_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
-            return (
-              <Button
-                key={opt.type}
-                variant="outline"
-                size="sm"
-                className="h-9 justify-start gap-1.5 text-xs"
-                onClick={() => onCreateType(opt.type)}
-              >
-                <Icon className={cn("size-3.5", opt.iconColorClass)} />
-                <span>{opt.label}</span>
-              </Button>
-            );
-          })}
+            </SortableContext>
+          )}
         </div>
       </div>
-    </>
+
+      {/* Bagian Palet Komponen Draggable */}
+      <div className="flex flex-col gap-2 border-t pt-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold text-foreground">
+            Tambah Komponen Baru ke Slot Ini:
+          </Label>
+          <span className="text-[11px] text-muted-foreground">
+            Tarik (drag) ke atas untuk meletakkan
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {CONTENT_TYPE_OPTIONS.map((opt) => (
+            <DraggablePaletteItem
+              key={opt.type}
+              option={opt}
+              disabled={isAdding}
+              onClick={() => {
+                if (hasDraggedRef.current) return;
+                onAddDirectly(opt.type);
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Drag Overlay di luar konteks modal dengan Portal agar tidak tergeser atau terpotong */}
+      {mounted && typeof document !== "undefined"
+        ? createPortal(
+            <DragOverlay
+              dropAnimation={{ duration: 180, easing: "ease" }}
+              style={{ pointerEvents: "none" }}
+            >
+              {activePaletteOption ? (
+                <PaletteItemPreview option={activePaletteOption} />
+              ) : null}
+              {activeSortableItem ? (
+                <SortableItemPreview item={activeSortableItem} />
+              ) : null}
+            </DragOverlay>,
+            document.body
+          )
+        : null}
+    </DndContext>
   );
 }
-

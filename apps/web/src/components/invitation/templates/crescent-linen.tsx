@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Moon, Star } from "lucide-react";
 
-import { EditableField, EditableRegion, GuestHint } from "../primitives";
+import { EditableField, EditableImage, EditableRegion, GuestHint } from "../primitives";
 import { useEditContext } from "../edit-context";
 import type { TemplateThemePreset } from "./kartu-pos";
 
@@ -76,11 +76,13 @@ export function CrescentLinenHeroBanner({
 
           {withPhotos ? (
             <div className="my-4 relative h-48 w-40 overflow-hidden rounded-t-full border-2 border-[#B08D57] shadow-md">
-              <Image
+              <EditableImage
                 src={coverImageUrl}
                 alt={title}
                 fill
                 className="object-cover"
+                field="coverImageUrl"
+                label="Foto Sampul Khitanan"
               />
             </div>
           ) : (
@@ -92,8 +94,8 @@ export function CrescentLinenHeroBanner({
             </div>
           )}
 
-          <div>
-            <h1 className="font-serif text-2xl font-bold tracking-tight text-[#1F362B] sm:text-3xl">
+          <div className="w-full">
+            <h1 className="w-full font-serif text-2xl font-bold tracking-tight text-[#1F362B] sm:text-3xl">
               <EditableField field="title" fallback={title} />
             </h1>
             <p className="mt-1.5 text-xs font-semibold text-[#B08D57]">

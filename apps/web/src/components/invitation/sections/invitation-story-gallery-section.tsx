@@ -1,10 +1,18 @@
 "use client";
 
 import Image from "next/image";
+import { Plus } from "lucide-react";
 
+import { cn } from "@senara/ui/lib/utils";
 import type { ThemeConfig } from "@/components/editor/theme-modal";
 
-import { EditableField, EditableRegion, SectionSwitch } from "../primitives";
+import { useEditContext } from "../edit-context";
+import {
+  EditableField,
+  EditableImage,
+  EditableRegion,
+  SectionSwitch,
+} from "../primitives";
 import type { TemplateThemePreset } from "../templates/kartu-pos";
 import type {
   UnifiedGalleryItem,
@@ -22,6 +30,8 @@ export function InvitationStorySection({
   themeConfig,
   stories,
 }: InvitationStorySectionProps) {
+  const { editing, onOpenRegion } = useEditContext();
+
   return (
     <SectionSwitch sectionKey="love-story" label={preset.labels.storyTitle}>
       <EditableRegion region="story" label="Edit Cerita">
@@ -60,8 +70,14 @@ export function InvitationStorySection({
             {stories.map((story, idx) => (
               <div
                 key={story.id}
-                className="relative border-l-2 py-1 pl-4 text-xs"
+                onClick={editing ? () => onOpenRegion?.("story") : undefined}
+                className={cn(
+                  "relative border-l-2 py-1 pl-4 text-xs transition-all",
+                  editing &&
+                    "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded-r"
+                )}
                 style={{ borderColor: preset.accentColor }}
+                title={editing ? "Klik untuk mengedit cerita perjalanan" : undefined}
               >
                 <span
                   className="absolute top-1.5 -left-[5px] size-2 rounded-full"
@@ -109,6 +125,8 @@ export function InvitationGallerySection({
   themeConfig,
   galleries,
 }: InvitationGallerySectionProps) {
+  const { editing, onOpenImagePicker, onUpdateGalleries } = useEditContext();
+
   return (
     <SectionSwitch sectionKey="gallery" label={preset.labels.galleryTitle}>
       <EditableRegion region="gallery" label="Kelola Galeri Foto">
@@ -132,19 +150,54 @@ export function InvitationGallerySection({
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 pt-1">
-            {galleries.map((item) => (
+            {galleries.map((item, idx) => (
               <div
-                key={item.id}
-                className="group relative aspect-square overflow-hidden rounded-xl border bg-muted shadow-2xs"
+                key={item.id || `gallery-item-${idx}`}
+                className="relative aspect-square overflow-hidden rounded-xl border bg-muted shadow-2xs"
               >
-                <Image
+                <EditableImage
                   src={item.mediaUrl}
-                  alt={item.caption || "Foto Kenangan"}
+                  alt={item.caption || `Foto Kenangan ${idx + 1}`}
                   fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="object-cover"
+                  label={`Foto Galeri #${idx + 1}`}
+                  onSave={(newUrl) => {
+                    const updated = [...galleries];
+                    updated[idx] = { ...updated[idx]!, mediaUrl: newUrl };
+                    onUpdateGalleries?.(updated);
+                  }}
                 />
               </div>
             ))}
+
+            {editing ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenImagePicker?.({
+                    label: "Foto Galeri Baru",
+                    onSelect: (newUrl) => {
+                      const newPhoto: UnifiedGalleryItem = {
+                        id: `gal-local-${Date.now()}`,
+                        mediaUrl: newUrl,
+                        mediaType: "IMAGE",
+                        caption: "Foto Kenangan",
+                      };
+                      onUpdateGalleries?.([...galleries, newPhoto]);
+                    },
+                  });
+                }}
+                className="flex flex-col items-center justify-center aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary transition-all p-3 text-center cursor-pointer group"
+                title="Tambah foto baru ke galeri"
+              >
+                <div className="flex size-9 items-center justify-center rounded-full bg-primary/15 text-primary group-hover:scale-110 transition-transform">
+                  <Plus className="size-5" />
+                </div>
+                <span className="text-[10px] font-semibold text-primary mt-1.5">
+                  Tambah Foto
+                </span>
+              </button>
+            ) : null}
           </div>
         </div>
       </EditableRegion>

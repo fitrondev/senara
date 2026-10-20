@@ -25,6 +25,7 @@ import {
 import { cn } from "@senara/ui/lib/utils";
 
 import type { ThemeConfig } from "@/components/editor/theme-modal";
+import { EditableImage } from "./primitives";
 
 export interface BankAccountItem {
   id: string;
@@ -241,11 +242,18 @@ export function DigitalGiftSection({
           {qrisModalItem?.qrisImageUrl ? (
             <div className="flex flex-col items-center gap-3 py-2">
               <div className="relative aspect-square w-56 overflow-hidden rounded-2xl border-2 border-primary/20 bg-white p-2 shadow-md">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <EditableImage
                   src={qrisModalItem.qrisImageUrl}
                   alt={`QRIS ${qrisModalItem.bankName}`}
-                  className="h-full w-full object-contain"
+                  fill
+                  className="object-contain p-2"
+                  label={`QRIS ${qrisModalItem.bankName}`}
+                  onSave={(newUrl) => {
+                    setQrisModalItem({
+                      ...qrisModalItem,
+                      qrisImageUrl: newUrl,
+                    });
+                  }}
                 />
               </div>
               <p className="text-xs font-semibold text-foreground">

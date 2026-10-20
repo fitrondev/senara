@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Info, Layers, Trash2 } from "lucide-react";
+import { Info, Layers, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -30,11 +30,12 @@ import {
   SelectValue,
 } from "@senara/ui/components/select";
 
-import {
-  CustomContentForm,
-  type CustomContentType,
-} from "@/components/editor/custom-content-forms";
+import { CustomContentForm } from "@/components/editor/custom-content-forms";
 import { CustomContentSlotList } from "@/components/editor/custom-content-slot-list";
+import {
+  getDefaultContentPayload,
+  type CustomContentType,
+} from "@/components/editor/custom-content-types";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { trpc } from "@/utils/trpc";
 
@@ -111,6 +112,9 @@ interface CustomContentModalProps {
   onOpenChange: (open: boolean) => void;
   invitationId: string;
   selectedSlotId?: string;
+  initialEditingItem?: CustomContentItemData | null;
+  onEditTextBlock?: (item: CustomContentItemData) => void;
+  onOpenLayoutLibrary?: () => void;
   items: CustomContentItemData[];
 }
 
@@ -119,18 +123,47 @@ export function CustomContentModal({
   onOpenChange,
   invitationId,
   selectedSlotId: initialSlotId = "after-hero",
+  initialEditingItem = null,
+  onEditTextBlock,
+  onOpenLayoutLibrary,
   items,
 }: CustomContentModalProps) {
   const queryClient = useQueryClient();
 
-  const [currentSlotId, setCurrentSlotId] = useState<string>(initialSlotId);
-  const [formMode, setFormMode] = useState<"idle" | "create" | "edit">("idle");
-  const [activeType, setActiveType] = useState<CustomContentType>("TITLE");
+  const [currentSlotId, setCurrentSlotId] = useState<string>(
+    initialEditingItem ? initialEditingItem.slotId : initialSlotId
+  );
+  const [formMode, setFormMode] = useState<"idle" | "create" | "edit">(
+    initialEditingItem ? "edit" : "idle"
+  );
+  const [activeType, setActiveType] = useState<CustomContentType>(
+    initialEditingItem
+      ? (initialEditingItem.type as CustomContentType)
+      : "TITLE"
+  );
   const [editingItem, setEditingItem] =
-    useState<CustomContentItemData | null>(null);
+    useState<CustomContentItemData | null>(initialEditingItem);
   const [wipeSlotDialogOpen, setWipeSlotDialogOpen] = useState(false);
   const [deleteItemTarget, setDeleteItemTarget] =
     useState<CustomContentItemData | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      if (initialEditingItem) {
+        setCurrentSlotId(initialEditingItem.slotId);
+        setEditingItem(initialEditingItem);
+        setActiveType(initialEditingItem.type as CustomContentType);
+        setFormMode("edit");
+      } else {
+        if (initialSlotId) setCurrentSlotId(initialSlotId);
+        setFormMode("idle");
+        setEditingItem(null);
+      }
+    } else {
+      setFormMode("idle");
+      setEditingItem(null);
+    }
+  }, [open, initialEditingItem, initialSlotId]);
 
   const slotItems = useMemo(() => {
     return items
@@ -237,6 +270,17 @@ export function CustomContentModal({
     });
   };
 
+  const handleReorderItems = (newItems: CustomContentItemData[]) => {
+    reorderMutation.mutate({
+      invitationId,
+      slotId: currentSlotId,
+      items: newItems.map((item, idx) => ({
+        id: item.id,
+        sortOrder: idx,
+      })),
+    });
+  };
+
   const handleToggleVisible = (itemId: string, currentVisible: boolean) => {
     updateMutation.mutate({
       id: itemId,
@@ -246,9 +290,31 @@ export function CustomContentModal({
   };
 
   const handleStartEdit = (item: CustomContentItemData) => {
+    if ((item.type === "TITLE" || item.type === "TEXT") && onEditTextBlock) {
+      onOpenChange(false);
+      onEditTextBlock(item);
+      return;
+    }
     setEditingItem(item);
     setActiveType(item.type as CustomContentType);
     setFormMode("edit");
+  };
+
+  const handleAddDirectly = async (
+    type: CustomContentType,
+    targetOrder?: number
+  ) => {
+    const defaultPayload = getDefaultContentPayload(type);
+    const order =
+      typeof targetOrder === "number" ? targetOrder : slotItems.length;
+
+    await addMutation.mutateAsync({
+      invitationId,
+      slotId: currentSlotId,
+      type,
+      content: defaultPayload,
+      sortOrder: order,
+    });
   };
 
   const handleFormSubmit = async (payload: Record<string, unknown>) => {
@@ -258,6 +324,9 @@ export function CustomContentModal({
         invitationId,
         content: payload,
       });
+      if (initialEditingItem) {
+        onOpenChange(false);
+      }
     } else {
       await addMutation.mutateAsync({
         invitationId,
@@ -281,24 +350,29 @@ export function CustomContentModal({
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <div className="rounded-md bg-primary/10 p-1.5 text-primary">
                 <Layers className="size-5" />
               </div>
               <div>
-                <DialogTitle>Layout Kustom</DialogTitle>
+                <DialogTitle>
+                  {formMode === "edit"
+                    ? `Edit Blok: ${activeType}`
+                    : "Layout Kustom"}
+                </DialogTitle>
                 <DialogDescription className="text-xs">
-                  Sisipkan blok konten tambahan di titik posisi pilihan tanpa
-                  merusak estetika template.
+                  {formMode === "edit"
+                    ? "Ubah konten dan pengaturan untuk blok layout kustom ini."
+                    : "Sisipkan blok konten tambahan di titik posisi pilihan tanpa merusak estetika template."}
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
           {formMode === "idle" ? (
-            <div className="flex flex-col gap-4">
+            <div className="flex w-full min-w-0 max-w-full flex-col gap-4 overflow-hidden">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs font-semibold text-foreground">
                   Muncul setelah:
@@ -335,6 +409,32 @@ export function CustomContentModal({
                 </AlertDescription>
               </Alert>
 
+              <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-4 text-amber-500 shrink-0" />
+                  <div className="text-left">
+                    <p className="text-xs font-semibold text-foreground">
+                      Pustaka Layout Siap Pakai
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Pilih dari puluhan desain layout halaman pre-designed dengan sekali klik.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 gap-1 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                  onClick={() => {
+                    onOpenChange(false);
+                    onOpenLayoutLibrary?.();
+                  }}
+                >
+                  <Sparkles className="size-3" />
+                  <span>Buka Pustaka</span>
+                </Button>
+              </div>
+
               <div className="flex items-center justify-between border-b pb-2 text-xs text-muted-foreground">
                 <span>
                   Total layout kustom di posisi ini:{" "}
@@ -350,19 +450,17 @@ export function CustomContentModal({
               <CustomContentSlotList
                 slotItems={slotItems}
                 isReordering={reorderMutation.isPending}
+                isAdding={addMutation.isPending}
                 onMoveOrder={handleMoveOrder}
+                onReorderItems={handleReorderItems}
                 onToggleVisible={handleToggleVisible}
                 onEditItem={handleStartEdit}
                 onDeleteItem={(item) => setDeleteItemTarget(item)}
-                onCreateType={(type) => {
-                  setActiveType(type);
-                  setEditingItem(null);
-                  setFormMode("create");
-                }}
+                onAddDirectly={handleAddDirectly}
               />
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex w-full min-w-0 max-w-full flex-col gap-4 overflow-hidden">
               <div className="flex items-center justify-between border-b pb-2">
                 <span className="text-sm font-semibold">
                   {formMode === "edit"
@@ -385,7 +483,7 @@ export function CustomContentModal({
                   }}
                   className="text-xs text-muted-foreground"
                 >
-                  Kembali ke Daftar
+                  Kelola Seluruh Blok ({slotItems.length})
                 </Button>
               </div>
 
@@ -398,8 +496,12 @@ export function CustomContentModal({
                 }
                 onSubmit={handleFormSubmit}
                 onCancel={() => {
-                  setFormMode("idle");
-                  setEditingItem(null);
+                  if (initialEditingItem) {
+                    onOpenChange(false);
+                  } else {
+                    setFormMode("idle");
+                    setEditingItem(null);
+                  }
                 }}
                 isSubmitting={addMutation.isPending || updateMutation.isPending}
               />

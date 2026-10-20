@@ -802,6 +802,117 @@ export const invitationRouter = router({
       };
     }),
 
+  updateLoveStories: protectedProcedure
+    .input(
+      z.object({
+        invitationId: z.string().min(1),
+        stories: z.array(
+          z.object({
+            id: z.string().optional(),
+            yearOrDate: z.string().min(1).max(100),
+            title: z.string().min(1).max(150),
+            story: z.string().min(1),
+            imageUrl: z.string().nullish(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.invitation.findFirst({
+        where: {
+          id: input.invitationId,
+          userId: ctx.auth.userId,
+        },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Undangan tidak ditemukan atau Anda tidak memiliki akses.",
+        });
+      }
+
+      await ctx.db.$transaction(async (tx) => {
+        await tx.loveStory.deleteMany({
+          where: { invitationId: input.invitationId },
+        });
+
+        if (input.stories.length > 0) {
+          await tx.loveStory.createMany({
+            data: input.stories.map((s, idx) => ({
+              invitationId: input.invitationId,
+              yearOrDate: s.yearOrDate,
+              title: s.title,
+              story: s.story,
+              imageUrl: s.imageUrl ?? null,
+              sortOrder: idx,
+            })),
+          });
+        }
+      });
+
+      const updatedStories = await ctx.db.loveStory.findMany({
+        where: { invitationId: input.invitationId },
+        orderBy: { sortOrder: "asc" },
+      });
+
+      return updatedStories;
+    }),
+
+  updateGalleries: protectedProcedure
+    .input(
+      z.object({
+        invitationId: z.string().min(1),
+        galleries: z.array(
+          z.object({
+            id: z.string().optional(),
+            mediaUrl: z.string().min(1),
+            mediaType: z.string().default("IMAGE"),
+            caption: z.string().nullish(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.invitation.findFirst({
+        where: {
+          id: input.invitationId,
+          userId: ctx.auth.userId,
+        },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Undangan tidak ditemukan atau Anda tidak memiliki akses.",
+        });
+      }
+
+      await ctx.db.$transaction(async (tx) => {
+        await tx.galleryMedia.deleteMany({
+          where: { invitationId: input.invitationId },
+        });
+
+        if (input.galleries.length > 0) {
+          await tx.galleryMedia.createMany({
+            data: input.galleries.map((g, idx) => ({
+              invitationId: input.invitationId,
+              mediaUrl: g.mediaUrl,
+              mediaType: g.mediaType || "IMAGE",
+              caption: g.caption ?? null,
+              sortOrder: idx,
+            })),
+          });
+        }
+      });
+
+      const updatedGalleries = await ctx.db.galleryMedia.findMany({
+        where: { invitationId: input.invitationId },
+        orderBy: { sortOrder: "asc" },
+      });
+
+      return updatedGalleries;
+    }),
 
   changeTemplate: protectedProcedure
     .input(

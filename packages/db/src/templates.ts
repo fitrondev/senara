@@ -156,4 +156,27 @@ export const INITIAL_TEMPLATES: TemplateSeedData[] = [
       { sectionKey: "closing", title: "Sampai Jumpa di Hari Bahagia", sortOrder: 8, isVisible: true, isLocked: true },
     ],
   },
+  {
+    slug: "autumn-serenity",
+    name: "Autumn Serenity & Pagoda",
+    category: "WEDDING",
+    thumbnail:
+      "https://images.unsplash.com/photo-1528164344705-475426879c0d?auto=format&fit=crop&w=800&q=80",
+    previewUrl: "/template/autumn-serenity",
+    isPremium: true,
+    price: 39000,
+    isActive: true,
+    tags: ["Aesthetic", "Serenity", "Oriental", "Dengan Foto", "Luxury"],
+    defaultSections: [
+      { sectionKey: "hero", title: "Sampul Serenity", sortOrder: 0, isVisible: true, isLocked: true },
+      { sectionKey: "quote", title: "Doa & Sabda Suci", sortOrder: 1, isVisible: true, isLocked: false },
+      { sectionKey: "couple", title: "Kedua Mempelai", sortOrder: 2, isVisible: true, isLocked: true },
+      { sectionKey: "event", title: "Rangkaian Waktu & Lokasi", sortOrder: 3, isVisible: true, isLocked: false },
+      { sectionKey: "love-story", title: "Langkah Menuju Pelaminan", sortOrder: 4, isVisible: true, isLocked: false },
+      { sectionKey: "gallery", title: "Potret Kenangan Indah", sortOrder: 5, isVisible: true, isLocked: false },
+      { sectionKey: "gift", title: "Tanda Kasih & Doa Restu", sortOrder: 6, isVisible: true, isLocked: false },
+      { sectionKey: "rsvp", title: "Kartu Konfirmasi Tamu", sortOrder: 7, isVisible: true, isLocked: false },
+      { sectionKey: "closing", title: "Salam Bahagia", sortOrder: 8, isVisible: true, isLocked: true },
+    ],
+  },
 ];

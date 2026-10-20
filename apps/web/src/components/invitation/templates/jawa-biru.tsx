@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Crown, Sparkles } from "lucide-react";
 
-import { EditableField, EditableRegion, GuestHint } from "../primitives";
+import { EditableField, EditableImage, EditableRegion, GuestHint } from "../primitives";
 import { useEditContext } from "../edit-context";
 import type { TemplateThemePreset } from "./kartu-pos";
 
@@ -76,11 +76,13 @@ export function JawaBiruHeroBanner({
 
           {withPhotos ? (
             <div className="my-4 relative h-52 w-44 overflow-hidden rounded-t-full border-2 border-[#D4AF37] shadow-xl">
-              <Image
+              <EditableImage
                 src={coverImageUrl}
                 alt={title}
                 fill
                 className="object-cover"
+                field="coverImageUrl"
+                label="Foto Sampul Pawiwahan"
               />
             </div>
           ) : (
@@ -92,8 +94,8 @@ export function JawaBiruHeroBanner({
             </div>
           )}
 
-          <div>
-            <h1 className="font-serif text-3xl font-bold tracking-wide text-[#F8EFE0]">
+          <div className="w-full">
+            <h1 className="w-full font-serif text-3xl font-bold tracking-wide text-[#F8EFE0]">
               <EditableField field="title" fallback={title} />
             </h1>
             <p className="mt-1.5 text-xs font-medium tracking-widest text-[#D4AF37]">

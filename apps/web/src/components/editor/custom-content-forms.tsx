@@ -51,6 +51,7 @@ import {
   ToggleGroupItem,
 } from "@senara/ui/components/toggle-group";
 import { cn } from "@senara/ui/lib/utils";
+import { MediaModal } from "./media-modal";
 
 export type CustomContentType =
   "TITLE" | "TEXT" | "PHOTO" | "VIDEO" | "BUTTON" | "LINK" | "YOUTUBE" | "MAP";
@@ -152,6 +153,7 @@ export function CustomContentForm({
 
   // Error validation state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -384,13 +386,25 @@ export function CustomContentForm({
             <Label htmlFor="photo-url" className="text-xs font-medium">
               URL Foto / Gambar <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="photo-url"
-              placeholder="https://images.unsplash.com/..."
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              required
-            />
+            <div className="flex gap-2">
+              <Input
+                id="photo-url"
+                placeholder="https://images.unsplash.com/..."
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                required
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 gap-1.5"
+                onClick={() => setMediaModalOpen(true)}
+              >
+                <ImageIcon className="size-3.5" />
+                <span>Pilih Media</span>
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -690,6 +704,17 @@ export function CustomContentForm({
           )}
         </Button>
       </div>
+
+      <MediaModal
+        open={mediaModalOpen}
+        onOpenChange={setMediaModalOpen}
+        title="Pilih Foto Blok Kustom"
+        currentImageUrl={imageUrl}
+        onSelectImage={(url) => {
+          setImageUrl(url);
+          setMediaModalOpen(false);
+        }}
+      />
     </form>
   );
 }

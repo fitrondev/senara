@@ -9,6 +9,9 @@ import {
   type ReactNode,
 } from "react";
 
+import type { UnifiedGalleryItem } from "./unified-invitation-data";
+import type { PageBackgroundSetting } from "@/components/editor/background-types";
+
 export type EditorRegionKey =
   | "cover"
   | "quote"
@@ -29,8 +32,19 @@ export interface EditContextValue {
   fields: Record<string, string>;
   getField: (key: string, fallback: string) => string;
   onPatchField?: (key: string, value: string) => void;
+  onPatchFields?: (fields: Record<string, string>) => void;
+  onEventDateChange?: (date: string) => void;
   onOpenRegion?: (region: EditorRegionKey) => void;
   onOpenTextEditor?: (params: { field: string; label?: string; fallback: string }) => void;
+  onOpenImagePicker?: (params: {
+    currentUrl?: string;
+    onSelect: (newUrl: string) => void;
+    onDelete?: () => void;
+    label?: string;
+  }) => void;
+  onUpdateGalleries?: (galleries: UnifiedGalleryItem[]) => void;
+  pageBackgrounds?: Record<string, PageBackgroundSetting>;
+  onOpenBackgroundModal?: (pageKey: string) => void;
   isSectionVisible: (sectionKey: string) => boolean;
   onToggleSection?: (sectionKey: string, nextVisible: boolean) => void;
   guestHintOpen: boolean;
@@ -114,8 +128,19 @@ export interface EditProviderProps {
   guestName?: string;
   fields?: Record<string, string>;
   onPatchField?: (key: string, value: string) => void;
+  onPatchFields?: (fields: Record<string, string>) => void;
+  onEventDateChange?: (date: string) => void;
   onOpenRegion?: (region: EditorRegionKey) => void;
   onOpenTextEditor?: (params: { field: string; label?: string; fallback: string }) => void;
+  onOpenImagePicker?: (params: {
+    currentUrl?: string;
+    onSelect: (newUrl: string) => void;
+    onDelete?: () => void;
+    label?: string;
+  }) => void;
+  onUpdateGalleries?: (galleries: UnifiedGalleryItem[]) => void;
+  pageBackgrounds?: Record<string, PageBackgroundSetting>;
+  onOpenBackgroundModal?: (pageKey: string) => void;
   isSectionVisible?: (sectionKey: string) => boolean;
   onToggleSection?: (sectionKey: string, nextVisible: boolean) => void;
 }
@@ -129,8 +154,14 @@ export function EditProvider({
   guestName,
   fields = {},
   onPatchField,
+  onPatchFields,
+  onEventDateChange,
   onOpenRegion,
   onOpenTextEditor,
+  onOpenImagePicker,
+  onUpdateGalleries,
+  pageBackgrounds,
+  onOpenBackgroundModal,
   isSectionVisible = () => true,
   onToggleSection,
 }: EditProviderProps) {
@@ -151,8 +182,18 @@ export function EditProvider({
         return typeof val === "string" && val.trim().length > 0 ? val : fallback;
       },
       onPatchField,
+      onPatchFields:
+        onPatchFields ||
+        ((newFields) => {
+          Object.entries(newFields).forEach(([k, v]) => onPatchField?.(k, v));
+        }),
+      onEventDateChange,
       onOpenRegion,
       onOpenTextEditor,
+      onOpenImagePicker,
+      onUpdateGalleries,
+      pageBackgrounds,
+      onOpenBackgroundModal,
       isSectionVisible,
       onToggleSection,
       guestHintOpen,
@@ -166,8 +207,14 @@ export function EditProvider({
       guestName,
       fields,
       onPatchField,
+      onPatchFields,
+      onEventDateChange,
       onOpenRegion,
       onOpenTextEditor,
+      onOpenImagePicker,
+      onUpdateGalleries,
+      pageBackgrounds,
+      onOpenBackgroundModal,
       isSectionVisible,
       onToggleSection,
       guestHintOpen,

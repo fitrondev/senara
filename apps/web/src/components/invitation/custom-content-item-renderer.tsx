@@ -7,6 +7,7 @@ import { Card } from "@senara/ui/components/card";
 import { cn } from "@senara/ui/lib/utils";
 
 import type { ThemeConfig } from "@/components/editor/theme-modal";
+import { EditableImage } from "./primitives";
 
 // Vercel Best Practice (js-hoist-regexp): Hoist RegExp creation outside functions
 const YOUTUBE_URL_REGEXP =
@@ -44,8 +45,17 @@ export function CustomContentItemRenderer({
   switch (item.type) {
     case "TITLE": {
       const titleText = (content.title as string) || "";
+      const hasHtml = /<[a-z][\s\S]*>/i.test(titleText);
+      const textAlignMatch = titleText.match(
+        /text-align:\s*(left|center|right)/i
+      );
       const align =
-        (content.align as "left" | "center" | "right") || "center";
+        (textAlignMatch?.[1]?.toLowerCase() as
+          | "left"
+          | "center"
+          | "right") ||
+        (content.align as "left" | "center" | "right") ||
+        "center";
       const sizeClass = (content.fontSize as string) || "text-xl";
       const textAlignClass =
         align === "left"
@@ -54,6 +64,23 @@ export function CustomContentItemRenderer({
             ? "text-right"
             : "text-center";
 
+      if (hasHtml) {
+        return (
+          <div
+            className={cn(
+              "w-full font-bold tracking-tight text-foreground",
+              sizeClass,
+              textAlignClass
+            )}
+            style={{
+              fontFamily: themeConfig.typography.headingFont,
+              textAlign: align,
+            }}
+            dangerouslySetInnerHTML={{ __html: titleText }}
+          />
+        );
+      }
+
       return (
         <h4
           className={cn(
@@ -61,7 +88,10 @@ export function CustomContentItemRenderer({
             sizeClass,
             textAlignClass
           )}
-          style={{ fontFamily: themeConfig.typography.headingFont }}
+          style={{
+            fontFamily: themeConfig.typography.headingFont,
+            textAlign: align,
+          }}
         >
           {titleText}
         </h4>
@@ -70,8 +100,17 @@ export function CustomContentItemRenderer({
 
     case "TEXT": {
       const textBody = (content.text as string) || "";
+      const hasHtml = /<[a-z][\s\S]*>/i.test(textBody);
+      const textAlignMatch = textBody.match(
+        /text-align:\s*(left|center|right)/i
+      );
       const align =
-        (content.align as "left" | "center" | "right") || "center";
+        (textAlignMatch?.[1]?.toLowerCase() as
+          | "left"
+          | "center"
+          | "right") ||
+        (content.align as "left" | "center" | "right") ||
+        "center";
       const textAlignClass =
         align === "left"
           ? "text-left"
@@ -79,13 +118,32 @@ export function CustomContentItemRenderer({
             ? "text-right"
             : "text-center";
 
+      if (hasHtml) {
+        return (
+          <div
+            className={cn(
+              "w-full text-xs leading-relaxed text-muted-foreground",
+              textAlignClass
+            )}
+            style={{
+              fontFamily: themeConfig.typography.bodyFont,
+              textAlign: align,
+            }}
+            dangerouslySetInnerHTML={{ __html: textBody }}
+          />
+        );
+      }
+
       return (
         <p
           className={cn(
             "w-full whitespace-pre-line text-xs leading-relaxed text-muted-foreground",
             textAlignClass
           )}
-          style={{ fontFamily: themeConfig.typography.bodyFont }}
+          style={{
+            fontFamily: themeConfig.typography.bodyFont,
+            textAlign: align,
+          }}
         >
           {textBody}
         </p>
@@ -111,11 +169,12 @@ export function CustomContentItemRenderer({
               aspectClass
             )}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <EditableImage
               src={photoUrl}
               alt={caption || "Foto Layout Kustom"}
-              className="h-full w-full object-cover"
+              fill
+              className="object-cover"
+              label="Foto Blok Kustom"
             />
           </div>
           {caption ? (

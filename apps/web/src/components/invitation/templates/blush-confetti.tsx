@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Cake, PartyPopper, Sparkles } from "lucide-react";
 
-import { EditableField, EditableRegion, GuestHint } from "../primitives";
+import { EditableField, EditableImage, EditableRegion, GuestHint } from "../primitives";
 import { useEditContext } from "../edit-context";
 import type { TemplateThemePreset } from "./kartu-pos";
 
@@ -72,11 +72,13 @@ export function BlushConfettiHeroBanner({
 
           {withPhotos ? (
             <div className="my-4 relative size-40 overflow-hidden rounded-full border-4 border-pink-300 shadow-lg">
-              <Image
+              <EditableImage
                 src={coverImageUrl}
                 alt={title}
                 fill
                 className="object-cover"
+                field="coverImageUrl"
+                label="Foto Sampul Ulang Tahun"
               />
             </div>
           ) : (
@@ -88,8 +90,8 @@ export function BlushConfettiHeroBanner({
             </div>
           )}
 
-          <div>
-            <h1 className="font-serif text-3xl font-extrabold tracking-tight text-[#3F1D28]">
+          <div className="w-full">
+            <h1 className="w-full font-serif text-3xl font-extrabold tracking-tight text-[#3F1D28]">
               <EditableField field="title" fallback={title} />
             </h1>
             <p className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-rose-600">

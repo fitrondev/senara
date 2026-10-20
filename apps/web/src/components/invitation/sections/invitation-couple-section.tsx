@@ -1,15 +1,23 @@
 "use client";
 
 import Image from "next/image";
+import { Camera } from "lucide-react";
 
 import type { ThemeConfig } from "@/components/editor/theme-modal";
 
-import { EditableField, EditableRegion, SectionSwitch } from "../primitives";
+import { useEditContext } from "../edit-context";
+import {
+  EditableField,
+  EditableImage,
+  EditableRegion,
+  SectionSwitch,
+} from "../primitives";
 import type { TemplateThemePreset } from "../templates/kartu-pos";
 
 interface PersonProfileCardProps {
   nameField: string;
   parentsField: string;
+  photoField: string;
   defaultName: string;
   defaultParents: string;
   photoUrl?: string;
@@ -21,6 +29,7 @@ interface PersonProfileCardProps {
 function PersonProfileCard({
   nameField,
   parentsField,
+  photoField,
   defaultName,
   defaultParents,
   photoUrl,
@@ -28,19 +37,45 @@ function PersonProfileCard({
   accentColor,
   headingFont,
 }: PersonProfileCardProps) {
+  const { editing, getField, onOpenImagePicker, onPatchField } = useEditContext();
+  const resolvedPhoto = getField(photoField, photoUrl || "");
+
   return (
     <div className="flex flex-col items-center gap-2">
-      {withPhotos && photoUrl ? (
+      {withPhotos && resolvedPhoto ? (
         <div
           className="relative size-24 overflow-hidden rounded-full border-2 shadow-md"
           style={{ borderColor: accentColor }}
         >
-          <Image
-            src={photoUrl}
+          <EditableImage
+            src={resolvedPhoto}
             alt={defaultName}
             fill
             className="object-cover"
+            field={photoField}
+            label={`Foto ${defaultName}`}
           />
+        </div>
+      ) : editing ? (
+        <div
+          onClick={() => {
+            onOpenImagePicker?.({
+              currentUrl: resolvedPhoto,
+              label: `Foto ${defaultName}`,
+              onSelect: (newUrl) => onPatchField?.(photoField, newUrl),
+            });
+          }}
+          className="group relative flex size-16 items-center justify-center rounded-full border-2 font-serif text-xl font-bold cursor-pointer transition-all hover:bg-primary/10"
+          style={{
+            borderColor: accentColor,
+            color: accentColor,
+          }}
+          title={`Klik untuk menambahkan foto ${defaultName}`}
+        >
+          <span>{defaultName.charAt(0)}</span>
+          <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+            <Camera className="size-4" />
+          </div>
         </div>
       ) : (
         <div
@@ -133,6 +168,7 @@ export function InvitationCoupleSection({
             <PersonProfileCard
               nameField="person1Name"
               parentsField="person1Parents"
+              photoField="person1Photo"
               defaultName={preset.labels.person1Name}
               defaultParents={preset.labels.person1Parents}
               photoUrl={preset.labels.person1Photo}
@@ -145,6 +181,7 @@ export function InvitationCoupleSection({
               <PersonProfileCard
                 nameField="person2Name"
                 parentsField="person2Parents"
+                photoField="person2Photo"
                 defaultName={preset.labels.person2Name}
                 defaultParents={preset.labels.person2Parents ?? ""}
                 photoUrl={preset.labels.person2Photo}

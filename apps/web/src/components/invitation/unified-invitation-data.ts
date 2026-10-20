@@ -5,6 +5,7 @@ import type { BankAccountItem } from "./digital-gift-section";
 import type { EditorRegionKey } from "./edit-context";
 import type { EventScheduleItem } from "./event-section";
 import type { PublicCustomContentItem } from "./public-custom-content-slot";
+import { AUTUMN_SERENITY_PRESET } from "./templates/autumn-serenity";
 import { BLUSH_CONFETTI_PRESET } from "./templates/blush-confetti";
 import { CRESCENT_LINEN_PRESET } from "./templates/crescent-linen";
 import { JAWA_BIRU_PRESET } from "./templates/jawa-biru";
@@ -62,10 +63,22 @@ export interface UnifiedInvitationProps {
   showCoverGateInitially?: boolean;
   fields?: Record<string, string>;
   onPatchField?: (key: string, value: string) => void;
+  onPatchFields?: (fields: Record<string, string>) => void;
+  onEventDateChange?: (date: string) => void;
   onOpenRegion?: (region: EditorRegionKey) => void;
   onOpenTextEditor?: (params: { field: string; label?: string; fallback: string }) => void;
+  onOpenImagePicker?: (params: {
+    currentUrl?: string;
+    onSelect: (newUrl: string) => void;
+    onDelete?: () => void;
+    label?: string;
+  }) => void;
+  onUpdateGalleries?: (galleries: UnifiedGalleryItem[]) => void;
   onToggleSection?: (sectionKey: string, nextVisible: boolean) => void;
   onOpenCustomSlot?: (slotId: string) => void;
+  onOpenLayoutLibrary?: (slotId?: string) => void;
+  onOpenBackgroundModal?: (pageKey: string) => void;
+  onEditCustomItem?: (item: CustomContentItemData) => void;
 }
 
 const fullEventDateFormatter = new Intl.DateTimeFormat("id-ID", {
@@ -85,6 +98,7 @@ export function formatInvitationEventDate(
 }
 
 export function resolveTemplatePreset(templateSlug: string): TemplateThemePreset {
+  if (templateSlug.includes("autumn-serenity")) return AUTUMN_SERENITY_PRESET;
   if (templateSlug.includes("jawa-biru")) return JAWA_BIRU_PRESET;
   if (templateSlug.includes("blush-confetti")) return BLUSH_CONFETTI_PRESET;
   if (templateSlug.includes("crescent-linen")) return CRESCENT_LINEN_PRESET;

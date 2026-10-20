@@ -1,79 +1,25 @@
 "use client";
 
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { use, useState } from "react";
 import type { Route } from "next";
-import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button } from "@senara/ui/components/button";
 
-import type { CustomContentItemData } from "@/components/editor/custom-content-modal";
-import { EditorRegionDialog } from "@/components/editor/editor-region-dialog";
+import { EditorModalsHost } from "@/components/editor/editor-modals-host";
 import { EditorToolbar } from "@/components/editor/editor-toolbar";
-import type { FontModalSelection } from "@/components/editor/font-modal";
-import type { MusicConfigSelection } from "@/components/editor/music-modal";
-import {
-  DEFAULT_PHOTO_FOCUS,
-  type PhotoFocusConfig,
-} from "@/components/editor/photo-framer-modal";
-import type { EditorSectionItem } from "@/components/editor/section-reorder-modal";
-import {
-  DEFAULT_THEME_CONFIG,
-  type ThemeConfig,
-} from "@/components/editor/theme-modal";
+import { useEditorModals } from "@/components/editor/use-editor-modals";
+import { useEditorState } from "@/components/editor/use-editor-state";
 import type { BankAccountItem } from "@/components/invitation/digital-gift-section";
-import type { EditorRegionKey } from "@/components/invitation/edit-context";
 import type { EventScheduleItem } from "@/components/invitation/event-section";
 import {
   UnifiedInvitation,
   type UnifiedGalleryItem,
   type UnifiedStoryItem,
 } from "@/components/invitation/unified-invitation";
-import { useEditorAutosave } from "@/hooks/use-editor-autosave";
 import { trpc } from "@/utils/trpc";
-
-// Vercel Best Practice (bundle-dynamic-imports): Load heavy editor modals lazily on demand
-const FontModal = dynamic(() =>
-  import("@/components/editor/font-modal").then((m) => m.FontModal)
-);
-const MusicModal = dynamic(() =>
-  import("@/components/editor/music-modal").then((m) => m.MusicModal)
-);
-const ChangeThemeModal = dynamic(() =>
-  import("@/components/editor/change-theme-modal").then(
-    (m) => m.ChangeThemeModal
-  )
-);
-const PhotoFramerModal = dynamic(() =>
-  import("@/components/editor/photo-framer-modal").then(
-    (m) => m.PhotoFramerModal
-  )
-);
-const ThemeModal = dynamic(() =>
-  import("@/components/editor/theme-modal").then((m) => m.ThemeModal)
-);
-const SectionReorderModal = dynamic(() =>
-  import("@/components/editor/section-reorder-modal").then(
-    (m) => m.SectionReorderModal
-  )
-);
-const CustomContentModal = dynamic(() =>
-  import("@/components/editor/custom-content-modal").then(
-    (m) => m.CustomContentModal
-  )
-);
-const PublishModal = dynamic(() =>
-  import("@/components/editor/publish-modal").then((m) => m.PublishModal)
-);
-const PricingModal = dynamic(() =>
-  import("@/components/billing/pricing-modal").then((m) => m.PricingModal)
-);
-const TextEditorModal = dynamic(() =>
-  import("@/components/editor/text-editor-modal").then((m) => m.TextEditorModal)
-);
 
 interface EditorPageProps {
   params: Promise<{
@@ -81,46 +27,11 @@ interface EditorPageProps {
   }>;
 }
 
-interface ExtendedThemeConfig extends ThemeConfig {
-  withPhotos?: boolean;
-  fields?: Record<string, string>;
-  fontSet?: string;
-  fontScale?: number;
-  scriptFont?: string;
-  musicStartAt?: number;
-  musicSourceType?: "library" | "upload" | "youtube";
-  photoFocus?: PhotoFocusConfig;
-  uploads?: string[];
-  previewSharedAt?: string;
-}
-
 export default function InvitationEditorPage({ params }: EditorPageProps) {
   const resolvedParams = use(params);
   const invitationId = resolvedParams.invitationId;
-  const queryClient = useQueryClient();
 
   const [deviceMode, setDeviceMode] = useState<"mobile" | "desktop">("mobile");
-  const [themeModalOpen, setThemeModalOpen] = useState(false);
-  const [fontModalOpen, setFontModalOpen] = useState(false);
-  const [musicModalOpen, setMusicModalOpen] = useState(false);
-  const [changeThemeModalOpen, setChangeThemeModalOpen] = useState(false);
-  const [photoFramerModalOpen, setPhotoFramerModalOpen] = useState(false);
-  const [reorderModalOpen, setReorderModalOpen] = useState(false);
-  const [customContentModalOpen, setCustomContentModalOpen] = useState(false);
-  const [publishModalOpen, setPublishModalOpen] = useState(false);
-  const [pricingModalOpen, setPricingModalOpen] = useState(false);
-  const [textEditorTarget, setTextEditorTarget] = useState<{
-    field: string;
-    label?: string;
-    fallback: string;
-  } | null>(null);
-  const [activeSlotId, setActiveSlotId] = useState<string>("after-hero");
-  const [activeRegion, setActiveRegion] = useState<EditorRegionKey | null>(
-    null
-  );
-  const [hasMultiTabConflict, setHasMultiTabConflict] = useState(false);
-
-  const localUpdatedAtRef = useRef<number>(0);
 
   const {
     data: invitation,
@@ -129,289 +40,13 @@ export default function InvitationEditorPage({ params }: EditorPageProps) {
     refetch,
   } = useQuery(trpc.invitation.getById.queryOptions({ id: invitationId }));
 
-  const lastUpdatedQuery = useQuery({
-    ...trpc.invitation.checkLastUpdated.queryOptions({ id: invitationId }),
-    refetchInterval: 15000,
-    refetchOnWindowFocus: true,
+  const editorState = useEditorState({
+    invitationId,
+    invitation,
+    onRefetch: refetch,
   });
 
-  useEffect(() => {
-    if (lastUpdatedQuery.data?.updatedAt && localUpdatedAtRef.current > 0) {
-      const serverTs = new Date(lastUpdatedQuery.data.updatedAt).getTime();
-      if (serverTs - localUpdatedAtRef.current > 3000) {
-        setHasMultiTabConflict(true);
-      }
-    }
-  }, [lastUpdatedQuery.data?.updatedAt]);
-
-  const [title, setTitle] = useState("");
-  const [coverImageUrl, setCoverImageUrl] = useState("");
-  const [musicUrl, setMusicUrl] = useState("");
-  const [musicTitle, setMusicTitle] = useState("");
-  const [isMusicAutoplay, setIsMusicAutoplay] = useState(true);
-  const [eventDateInput, setEventDateInput] = useState("2026-10-24");
-  const [themeConfig, setThemeConfig] =
-    useState<ExtendedThemeConfig>(DEFAULT_THEME_CONFIG);
-  const [sections, setSections] = useState<EditorSectionItem[]>([]);
-
-  const customContentsList = useMemo(() => {
-    return (invitation?.customContents ??
-      []) as unknown as CustomContentItemData[];
-  }, [invitation?.customContents]);
-
-  const handleOpenSlot = (slotId: string) => {
-    setActiveSlotId(slotId);
-    setCustomContentModalOpen(true);
-  };
-
-  useEffect(() => {
-    if (invitation) {
-      setTitle(invitation.title);
-      setCoverImageUrl(
-        invitation.coverImageUrl ||
-          invitation.template?.thumbnail ||
-          "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80"
-      );
-      setMusicUrl(invitation.musicUrl ?? "");
-      setMusicTitle(invitation.musicTitle ?? "");
-      setIsMusicAutoplay(invitation.isMusicAutoplay ?? true);
-      if (invitation.eventDate) {
-        setEventDateInput(
-          new Date(invitation.eventDate).toISOString().slice(0, 10)
-        );
-      }
-      if (invitation.themeConfig) {
-        setThemeConfig({
-          ...DEFAULT_THEME_CONFIG,
-          ...(invitation.themeConfig as unknown as Partial<ExtendedThemeConfig>),
-        });
-      }
-      if (invitation.sections) {
-        setSections(invitation.sections as EditorSectionItem[]);
-      }
-      if (invitation.updatedAt) {
-        localUpdatedAtRef.current = new Date(invitation.updatedAt).getTime();
-      }
-    }
-  }, [invitation]);
-
-  const updateMetadataMutation = useMutation(
-    trpc.invitation.updateMetadata.mutationOptions({
-      onSuccess: (updated) => {
-        if (updated.updatedAt) {
-          localUpdatedAtRef.current = new Date(updated.updatedAt).getTime();
-        }
-        setHasMultiTabConflict(false);
-        queryClient.invalidateQueries(
-          trpc.invitation.getById.queryFilter({ id: invitationId })
-        );
-      },
-    })
-  );
-
-  const reorderSectionMutation = useMutation(
-    trpc.section.reorderAndToggle.mutationOptions({
-      onSuccess: () => {
-        localUpdatedAtRef.current = Date.now();
-        queryClient.invalidateQueries(
-          trpc.invitation.getById.queryFilter({ id: invitationId })
-        );
-      },
-    })
-  );
-
-  const {
-    status: autoSaveStatus,
-    triggerSave,
-    retry: retrySave,
-  } = useEditorAutosave({
-    storageKey: `senara_editor_${invitationId}`,
-    saveFn: async (updatedData: {
-      title: string;
-      coverImageUrl?: string;
-      musicUrl?: string;
-      musicTitle?: string;
-      isMusicAutoplay?: boolean;
-      themeConfig?: ExtendedThemeConfig;
-    }) => {
-      await updateMetadataMutation.mutateAsync({
-        id: invitationId,
-        title: updatedData.title,
-        coverImageUrl: updatedData.coverImageUrl,
-        musicUrl: updatedData.musicUrl || null,
-        musicTitle: updatedData.musicTitle || null,
-        isMusicAutoplay: updatedData.isMusicAutoplay,
-        themeConfig:
-          updatedData.themeConfig as unknown as Record<string, unknown>,
-      });
-    },
-  });
-
-  const handlePatchField = (fieldKey: string, value: string) => {
-    const nextTitle = fieldKey === "title" && value.trim() ? value : title;
-    if (fieldKey === "title" && value.trim()) {
-      setTitle(value);
-    }
-    const nextTheme: ExtendedThemeConfig = {
-      ...themeConfig,
-      fields: {
-        ...(themeConfig.fields ?? {}),
-        [fieldKey]: value,
-      },
-    };
-    setThemeConfig(nextTheme);
-    triggerSave({
-      title: nextTitle,
-      coverImageUrl,
-      musicUrl,
-      musicTitle,
-      isMusicAutoplay,
-      themeConfig: nextTheme,
-    });
-  };
-
-  const handleToggleWithPhotos = (nextWithPhotos: boolean) => {
-    const nextTheme: ExtendedThemeConfig = {
-      ...themeConfig,
-      withPhotos: nextWithPhotos,
-    };
-    setThemeConfig(nextTheme);
-    triggerSave({
-      title,
-      coverImageUrl,
-      musicUrl,
-      musicTitle,
-      isMusicAutoplay,
-      themeConfig: nextTheme,
-    });
-  };
-
-  const handleToggleSection = (sectionKey: string, nextVisible: boolean) => {
-    const updated = sections.map((sec) =>
-      sec.sectionKey === sectionKey ? { ...sec, isVisible: nextVisible } : sec
-    );
-    setSections(updated);
-    reorderSectionMutation.mutate({
-      invitationId,
-      sections: updated.map((s, idx) => ({
-        id: s.id,
-        sortOrder: idx,
-        isVisible: s.isVisible,
-      })),
-    });
-    toast.success(
-      nextVisible
-        ? "Bagian ditampilkan kembali di undangan."
-        : "Bagian disembunyikan dari tampilan tamu."
-    );
-  };
-
-  const handleSaveTheme = (newTheme: ThemeConfig) => {
-    const merged: ExtendedThemeConfig = {
-      ...themeConfig,
-      ...newTheme,
-    };
-    setThemeConfig(merged);
-    triggerSave({
-      title,
-      coverImageUrl,
-      musicUrl,
-      musicTitle,
-      isMusicAutoplay,
-      themeConfig: merged,
-    });
-  };
-
-  const handleSaveFont = (selection: FontModalSelection) => {
-    const merged: ExtendedThemeConfig = {
-      ...themeConfig,
-      fontSet: selection.fontSet,
-      fontScale: selection.fontScale,
-      scriptFont: selection.scriptFont,
-      typography: {
-        headingFont: selection.headingFont,
-        bodyFont: selection.bodyFont,
-      },
-    };
-    setThemeConfig(merged);
-    triggerSave({
-      title,
-      coverImageUrl,
-      musicUrl,
-      musicTitle,
-      isMusicAutoplay,
-      themeConfig: merged,
-    });
-    toast.success("Pasangan huruf dan skala tipografi berhasil diperbarui!");
-  };
-
-  const handleSaveMusic = (selection: MusicConfigSelection) => {
-    const nextUrl = selection.musicUrl ?? "";
-    setMusicUrl(nextUrl);
-    setMusicTitle(selection.musicTitle);
-    setIsMusicAutoplay(selection.isMusicAutoplay);
-
-    const merged: ExtendedThemeConfig = {
-      ...themeConfig,
-      musicStartAt: selection.musicStartAt,
-      musicSourceType: selection.musicSourceType,
-    };
-    setThemeConfig(merged);
-    triggerSave({
-      title,
-      coverImageUrl,
-      musicUrl: nextUrl,
-      musicTitle: selection.musicTitle,
-      isMusicAutoplay: selection.isMusicAutoplay,
-      themeConfig: merged,
-    });
-    toast.success("Pengaturan musik latar berhasil disimpan!");
-  };
-
-  const handleSavePhotoFocus = (result: {
-    imageUrl: string;
-    focus: PhotoFocusConfig;
-    withPhotos: boolean;
-    updatedUploads: string[];
-  }) => {
-    setCoverImageUrl(result.imageUrl);
-    const merged: ExtendedThemeConfig = {
-      ...themeConfig,
-      withPhotos: result.withPhotos,
-      photoFocus: result.focus,
-      uploads: result.updatedUploads,
-    };
-    setThemeConfig(merged);
-    triggerSave({
-      title,
-      coverImageUrl: result.imageUrl,
-      musicUrl,
-      musicTitle,
-      isMusicAutoplay,
-      themeConfig: merged,
-    });
-    toast.success("Posisi fokus dan zoom foto berhasil disimpan!");
-  };
-
-  const publishMutation = useMutation(
-    trpc.invitation.updateMetadata.mutationOptions({
-      onSuccess: () => {
-        toast.success("Status publikasi undangan berhasil diperbarui!");
-        queryClient.invalidateQueries(
-          trpc.invitation.getById.queryFilter({ id: invitationId })
-        );
-      },
-      onError: (err) => {
-        toast.error(err.message || "Gagal menerbitkan undangan");
-      },
-    })
-  );
-
-  const isPublished = invitation?.status === "PUBLISHED";
-  const publicUrl =
-    typeof window !== "undefined" && invitation
-      ? `${window.location.origin}/${invitation.slug}`
-      : `/${invitation?.slug ?? ""}`;
+  const modals = useEditorModals();
 
   if (isLoading) {
     return (
@@ -442,15 +77,17 @@ export default function InvitationEditorPage({ params }: EditorPageProps) {
     );
   }
 
+  const { draft, status, actions } = editorState;
+  const publicUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/${invitation.slug}`
+      : `/${invitation.slug}`;
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
-      {hasMultiTabConflict ? (
+      {status.hasMultiTabConflict ? (
         <div
-          onClick={async () => {
-            await refetch();
-            setHasMultiTabConflict(false);
-            toast.success("Data undangan terbaru telah dimuat ulang.");
-          }}
+          onClick={actions.resolveConflict}
           className="flex cursor-pointer items-center justify-center gap-2 bg-amber-500 px-4 py-1.5 text-xs font-semibold text-amber-950 transition-colors hover:bg-amber-400"
         >
           <AlertTriangle className="size-3.5" />
@@ -462,24 +99,25 @@ export default function InvitationEditorPage({ params }: EditorPageProps) {
       ) : null}
 
       <EditorToolbar
-        autoSaveStatus={autoSaveStatus}
-        onRetrySave={retrySave}
-        withPhotos={themeConfig.withPhotos ?? true}
-        onToggleWithPhotos={handleToggleWithPhotos}
+        autoSaveStatus={status.autoSaveStatus}
+        onRetrySave={actions.retrySave}
+        withPhotos={draft.themeConfig.withPhotos ?? true}
+        onToggleWithPhotos={actions.toggleWithPhotos}
         deviceMode={deviceMode}
         onDeviceModeChange={setDeviceMode}
-        customContentsCount={customContentsList.length}
+        customContentsCount={draft.customContentsList.length}
         publicUrl={publicUrl}
-        isPublished={isPublished}
-        isPublishing={publishMutation.isPending}
-        onTogglePublish={() => setPublishModalOpen(true)}
-        onOpenChangeTheme={() => setChangeThemeModalOpen(true)}
-        onOpenFontModal={() => setFontModalOpen(true)}
-        onOpenMusicModal={() => setMusicModalOpen(true)}
-        onOpenPhotoFramer={() => setPhotoFramerModalOpen(true)}
-        onOpenCustomContent={() => handleOpenSlot("after-hero")}
-        onOpenThemePalette={() => setThemeModalOpen(true)}
-        onOpenReorderModal={() => setReorderModalOpen(true)}
+        isPublished={status.isPublished}
+        isPublishing={status.isPublishing}
+        onTogglePublish={() => modals.setPublishOpen(true)}
+        onOpenChangeTheme={() => modals.setChangeThemeOpen(true)}
+        onOpenFontModal={() => modals.setFontOpen(true)}
+        onOpenMusicModal={() => modals.setMusicOpen(true)}
+        onOpenPhotoFramer={() => modals.setPhotoFramerOpen(true)}
+        onOpenLayoutLibrary={() => modals.openLayoutLibrary("after-hero")}
+        onOpenCustomContent={() => modals.openCustomContent("after-hero")}
+        onOpenThemePalette={() => modals.setThemeOpen(true)}
+        onOpenReorderModal={() => modals.setReorderOpen(true)}
       />
 
       <main className="relative flex flex-1 items-start justify-center overflow-y-auto bg-muted/40 p-4 md:py-8">
@@ -491,11 +129,11 @@ export default function InvitationEditorPage({ params }: EditorPageProps) {
           }`}
           style={
             {
-              "--editor-primary": themeConfig.palette.primary,
-              "--editor-bg": themeConfig.palette.background,
-              "--editor-accent": themeConfig.palette.accent,
-              "--editor-font-heading": themeConfig.typography.headingFont,
-              "--editor-font-body": themeConfig.typography.bodyFont,
+              "--editor-primary": draft.themeConfig.palette.primary,
+              "--editor-bg": draft.themeConfig.palette.background,
+              "--editor-accent": draft.themeConfig.palette.accent,
+              "--editor-font-heading": draft.themeConfig.typography.headingFont,
+              "--editor-font-body": draft.themeConfig.typography.bodyFont,
             } as React.CSSProperties
           }
         >
@@ -508,187 +146,98 @@ export default function InvitationEditorPage({ params }: EditorPageProps) {
           <UnifiedInvitation
             invitationId={invitationId}
             templateSlug={invitation.template?.slug ?? "kartu-pos-vintage"}
-            title={title}
+            title={draft.title}
             eventDate={invitation.eventDate}
-            coverImageUrl={coverImageUrl}
-            musicUrl={musicUrl}
-            musicStartAt={themeConfig.musicStartAt ?? 0}
-            fontScale={themeConfig.fontScale ?? 1}
-            scriptFont={themeConfig.scriptFont}
-            themeConfig={themeConfig}
-            sections={sections}
+            coverImageUrl={draft.coverImageUrl}
+            musicUrl={draft.musicUrl}
+            musicStartAt={draft.themeConfig.musicStartAt ?? 0}
+            fontScale={draft.themeConfig.fontScale ?? 1}
+            scriptFont={draft.themeConfig.scriptFont}
+            themeConfig={draft.themeConfig}
+            sections={draft.sections}
             schedules={invitation.schedules as unknown as EventScheduleItem[]}
             bankAccounts={
               invitation.bankAccounts as unknown as BankAccountItem[]
             }
-            galleries={invitation.galleries as unknown as UnifiedGalleryItem[]}
-            loveStories={
-              invitation.loveStories as unknown as UnifiedStoryItem[]
+            galleries={
+              draft.localGalleries.length > 0
+                ? draft.localGalleries
+                : (invitation.galleries as unknown as UnifiedGalleryItem[])
             }
-            customContents={customContentsList}
-            withPhotos={themeConfig.withPhotos ?? true}
-            fields={themeConfig.fields ?? {}}
+            loveStories={
+              draft.localStories.length > 0
+                ? draft.localStories
+                : (invitation.loveStories as unknown as UnifiedStoryItem[])
+            }
+            customContents={draft.customContentsList}
+            withPhotos={draft.themeConfig.withPhotos ?? true}
+            fields={draft.themeConfig.fields ?? {}}
             editing
-            onPatchField={handlePatchField}
+            onPatchField={actions.patchField}
+            onPatchFields={actions.patchFields}
+            onEventDateChange={actions.changeEventDate}
+            onUpdateGalleries={actions.updateGalleries}
+            onOpenImagePicker={modals.setMediaTarget}
             onOpenRegion={(region) => {
               if (region === "cover") {
-                setPhotoFramerModalOpen(true);
+                modals.setMediaTarget({
+                  currentUrl: draft.coverImageUrl,
+                  label: "Foto Sampul Utama",
+                  onSelect: (newUrl) => {
+                    actions.setCoverImageUrl(newUrl);
+                    actions.patchField("coverImageUrl", newUrl);
+                    actions.triggerSave({
+                      title: draft.title,
+                      coverImageUrl: newUrl,
+                      musicUrl: draft.musicUrl,
+                      musicTitle: draft.musicTitle,
+                      isMusicAutoplay: draft.isMusicAutoplay,
+                      themeConfig: draft.themeConfig,
+                    });
+                  },
+                });
+              } else if (region === "story") {
+                modals.setStoryOpen(true);
+              } else if (region === "gallery") {
+                modals.setMediaTarget({
+                  label: "Foto Galeri Baru",
+                  onSelect: (newUrl) => {
+                    const current =
+                      draft.localGalleries.length > 0
+                        ? draft.localGalleries
+                        : (invitation.galleries as unknown as UnifiedGalleryItem[]) || [];
+                    actions.updateGalleries([
+                      ...current,
+                      {
+                        id: `gal-local-${Date.now()}`,
+                        mediaUrl: newUrl,
+                        mediaType: "IMAGE",
+                        caption: "Foto Kenangan",
+                      },
+                    ]);
+                  },
+                });
               } else {
-                setActiveRegion(region);
+                modals.setActiveRegion(region);
               }
             }}
-            onToggleSection={handleToggleSection}
-            onOpenCustomSlot={handleOpenSlot}
-            onOpenTextEditor={setTextEditorTarget}
+            onToggleSection={actions.toggleSection}
+            onOpenCustomSlot={modals.openCustomContent}
+            onOpenLayoutLibrary={modals.openLayoutLibrary}
+            onOpenBackgroundModal={(pageKey) =>
+              modals.setBackgroundTarget(pageKey)
+            }
+            onEditCustomItem={modals.handleEditCustomItem}
+            onOpenTextEditor={modals.setTextEditorTarget}
           />
         </div>
       </main>
 
-      <EditorRegionDialog
-        activeRegion={activeRegion}
-        onClose={() => setActiveRegion(null)}
-        title={title}
-        onTitleChange={(nextTitle) => {
-          setTitle(nextTitle);
-          handlePatchField("title", nextTitle);
-        }}
-        eventDateInput={eventDateInput}
-        onEventDateChange={(nextDate) => {
-          setEventDateInput(nextDate);
-          if (nextDate) {
-            updateMetadataMutation.mutate({
-              id: invitationId,
-              eventDate: new Date(nextDate),
-            });
-          }
-        }}
-        withPhotos={themeConfig.withPhotos ?? true}
-        onToggleWithPhotos={handleToggleWithPhotos}
+      <EditorModalsHost
+        modals={modals}
+        editorState={editorState}
+        invitation={invitation}
       />
-
-      {fontModalOpen ? (
-        <FontModal
-          open={fontModalOpen}
-          onOpenChange={setFontModalOpen}
-          templateSlug={invitation.template?.slug ?? "kartu-pos-vintage"}
-          currentFontSet={themeConfig.fontSet}
-          currentFontScale={themeConfig.fontScale ?? 1}
-          onSaveFont={handleSaveFont}
-        />
-      ) : null}
-
-      {musicModalOpen ? (
-        <MusicModal
-          open={musicModalOpen}
-          onOpenChange={setMusicModalOpen}
-          currentMusicUrl={musicUrl}
-          currentMusicTitle={musicTitle}
-          currentAutoplay={isMusicAutoplay}
-          currentStartAt={themeConfig.musicStartAt ?? 0}
-          onSaveMusic={handleSaveMusic}
-        />
-      ) : null}
-
-      {changeThemeModalOpen ? (
-        <ChangeThemeModal
-          open={changeThemeModalOpen}
-          onOpenChange={setChangeThemeModalOpen}
-          invitationId={invitationId}
-          currentTemplateId={invitation.templateId}
-        />
-      ) : null}
-
-      {photoFramerModalOpen ? (
-        <PhotoFramerModal
-          open={photoFramerModalOpen}
-          onOpenChange={setPhotoFramerModalOpen}
-          currentImageUrl={coverImageUrl}
-          currentFocus={themeConfig.photoFocus ?? DEFAULT_PHOTO_FOCUS}
-          uploadedPhotos={themeConfig.uploads ?? []}
-          onSavePhoto={handleSavePhotoFocus}
-        />
-      ) : null}
-
-      {themeModalOpen ? (
-        <ThemeModal
-          open={themeModalOpen}
-          onOpenChange={setThemeModalOpen}
-          currentTheme={themeConfig}
-          onSaveTheme={handleSaveTheme}
-        />
-      ) : null}
-
-      {reorderModalOpen ? (
-        <SectionReorderModal
-          open={reorderModalOpen}
-          onOpenChange={setReorderModalOpen}
-          invitationId={invitationId}
-          sections={sections}
-          onSectionsChange={(updated) => setSections(updated)}
-        />
-      ) : null}
-
-      {customContentModalOpen ? (
-        <CustomContentModal
-          open={customContentModalOpen}
-          onOpenChange={setCustomContentModalOpen}
-          invitationId={invitationId}
-          selectedSlotId={activeSlotId}
-          items={customContentsList}
-        />
-      ) : null}
-
-      {publishModalOpen ? (
-        <PublishModal
-          open={publishModalOpen}
-          onOpenChange={setPublishModalOpen}
-          invitationId={invitationId}
-          title={title || invitation.title}
-          slug={invitation.slug}
-          status={invitation.status}
-          packageTier={invitation.packageTier}
-          enabledAddons={invitation.enabledAddons ?? []}
-          isSlugLocked={Boolean(
-            invitation.publishedAt ||
-              invitation.status === "PUBLISHED" ||
-              themeConfig.previewSharedAt
-          )}
-          fields={themeConfig.fields ?? {}}
-          onOpenPricingModal={() => setPricingModalOpen(true)}
-        />
-      ) : null}
-
-      {pricingModalOpen ? (
-        <PricingModal
-          open={pricingModalOpen}
-          onOpenChange={setPricingModalOpen}
-          invitationId={invitationId}
-          invitationTitle={title || invitation.title}
-          isAlreadyPremium={invitation.packageTier === "PREMIUM"}
-          enabledAddons={invitation.enabledAddons ?? []}
-        />
-      ) : null}
-
-      {textEditorTarget ? (
-        <TextEditorModal
-          open={Boolean(textEditorTarget)}
-          onOpenChange={(open) => {
-            if (!open) setTextEditorTarget(null);
-          }}
-          field={textEditorTarget.field}
-          label={textEditorTarget.label}
-          initialValue={
-            (themeConfig.fields?.[textEditorTarget.field] ??
-              (textEditorTarget.field === "title"
-                ? title
-                : textEditorTarget.fallback)) ||
-            ""
-          }
-          onSave={(fieldKey, value) => {
-            handlePatchField(fieldKey, value);
-          }}
-        />
-      ) : null}
     </div>
   );
 }

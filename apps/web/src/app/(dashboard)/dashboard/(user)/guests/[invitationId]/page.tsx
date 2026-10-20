@@ -459,7 +459,7 @@ export default function GuestManagementPage({ params }: GuestPageProps) {
               className="h-9 gap-1.5 border-indigo-500/30 text-indigo-600 text-xs hover:bg-indigo-500/10 dark:text-indigo-400"
             >
               <UsersRound className="size-3.5" />
-              <span>+ Link Grup WA</span>
+              <span>Link Grup WA</span>
             </Button>
 
             <Button
@@ -468,7 +468,7 @@ export default function GuestManagementPage({ params }: GuestPageProps) {
               className="h-9 gap-1.5 text-xs shadow-xs"
             >
               <UserPlus className="size-3.5" />
-              <span>+ Tambah Tamu</span>
+              <span>Tambah Tamu</span>
             </Button>
           </>
         }

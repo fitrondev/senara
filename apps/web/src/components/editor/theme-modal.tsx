@@ -36,6 +36,13 @@ export interface ThemeConfig {
     bodyFont: string;
   };
   buttonStyle?: "rounded" | "pill" | "sharp";
+  pageBackgrounds?: Record<
+    string,
+    {
+      type: "default" | "custom";
+      customUrl?: string;
+    }
+  >;
 }
 
 // Vercel Best Practice: Hoist static preset configurations outside render

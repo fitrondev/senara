@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type CSSProperties, type ReactNode } from "react";
-import { EyeOff, Pencil, Sparkles, Users } from "lucide-react";
+import Image from "next/image";
+import { Camera, EyeOff, ImagePlus, Pencil, Sparkles, Users } from "lucide-react";
 
 import { Badge } from "@senara/ui/components/badge";
 import { Button } from "@senara/ui/components/button";
@@ -16,6 +17,7 @@ import {
 import { Switch } from "@senara/ui/components/switch";
 import { cn } from "@senara/ui/lib/utils";
 
+import { getPageBackgroundPreset } from "@/components/editor/background-presets";
 import { useEditContext, type EditorRegionKey } from "./edit-context";
 
 export interface EditableFieldProps {
@@ -41,10 +43,60 @@ const HUMAN_FIELD_LABELS: Record<string, string> = {
   quoteSource: "Sumber Kutipan / Ayat",
   eventGreeting: "Salam Pembuka",
   closingNote: "Pesan Penutup / Ucapan Terima Kasih",
+  eventBadge: "Label Bagian Acara",
+  eventTitle: "Judul Rangkaian Acara",
+  eventSubtitle: "Deskripsi / Undangan Rangkaian Acara",
+  countdownBadge: "Label Hitung Mundur",
+  countdownDaysLabel: "Label Hari (Countdown)",
+  countdownHoursLabel: "Label Jam (Countdown)",
+  countdownMinutesLabel: "Label Menit (Countdown)",
+  countdownSecondsLabel: "Label Detik (Countdown)",
+  countdownExpiredTitle: "Judul Waktu Tiba",
+  countdownExpiredDesc: "Pesan Waktu Tiba",
 };
 
 function formatFieldLabel(field: string): string {
   if (HUMAN_FIELD_LABELS[field]) return HUMAN_FIELD_LABELS[field]!;
+  if (field.startsWith("schedule_")) {
+    const match = field.match(/^schedule_(\d+)_(.+)$/);
+    if (match) {
+      const num = parseInt(match[1]!, 10) + 1;
+      const key = match[2];
+      switch (key) {
+        case "title":
+          return `Nama Acara ${num}`;
+        case "timezone":
+          return `Zona Waktu Acara ${num}`;
+        case "date":
+          return `Tanggal Acara ${num}`;
+        case "time":
+          return `Waktu / Jam Acara ${num}`;
+        case "venue":
+          return `Nama Tempat / Gedung Acara ${num}`;
+        case "address":
+          return `Alamat Lokasi Acara ${num}`;
+        case "mapsLabel":
+          return `Teks Tombol Maps Acara ${num}`;
+        case "calendarLabel":
+          return `Teks Tombol Kalender Acara ${num}`;
+      }
+    }
+  }
+  if (field.startsWith("story_")) {
+    const match = field.match(/^story_(\d+)_(.+)$/);
+    if (match) {
+      const num = parseInt(match[1]!, 10) + 1;
+      const key = match[2];
+      switch (key) {
+        case "year":
+          return `Tahun Kisah ${num}`;
+        case "title":
+          return `Judul Kisah ${num}`;
+        case "body":
+          return `Isi Cerita Kisah ${num}`;
+      }
+    }
+  }
   return field.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
 }
 
@@ -66,14 +118,29 @@ export function EditableField({
   const [draftValue, setDraftValue] = useState(currentValue);
 
   const hasHtml = /<[a-z][\s\S]*>/i.test(currentValue);
+  const textAlignMatch = currentValue.match(/text-align:\s*(left|center|right)/i);
+  const extractedAlign = textAlignMatch?.[1]?.toLowerCase() as
+    | "left"
+    | "center"
+    | "right"
+    | undefined;
 
   if (!editing) {
     if (hasHtml) {
       return (
         <Tag
           data-field={field}
-          className={className}
-          style={style}
+          className={cn(
+            extractedAlign ? "w-full block" : undefined,
+            extractedAlign === "left" && "text-left",
+            extractedAlign === "center" && "text-center",
+            extractedAlign === "right" && "text-right",
+            className
+          )}
+          style={{
+            ...style,
+            ...(extractedAlign ? { textAlign: extractedAlign } : {}),
+          }}
           dangerouslySetInnerHTML={{ __html: currentValue }}
         />
       );
@@ -96,6 +163,13 @@ export function EditableField({
   };
 
   if (isEditingInline) {
+    const inlineAlignClass =
+      extractedAlign === "left"
+        ? "text-left"
+        : extractedAlign === "right"
+          ? "text-right"
+          : "text-center";
+
     if (multiline) {
       return (
         <textarea
@@ -109,10 +183,14 @@ export function EditableField({
           }}
           onBlur={() => setIsEditingInline(false)}
           className={cn(
-            "w-full rounded-md border border-amber-400 bg-black/20 px-2 py-1 text-center backdrop-blur-xs outline-none focus:ring-2 focus:ring-amber-400",
+            "w-full rounded-md border border-amber-400 bg-black/20 px-2 py-1 backdrop-blur-xs outline-none focus:ring-2 focus:ring-amber-400",
+            inlineAlignClass,
             className
           )}
-          style={style}
+          style={{
+            ...style,
+            ...(extractedAlign ? { textAlign: extractedAlign } : {}),
+          }}
         />
       );
     }
@@ -134,10 +212,14 @@ export function EditableField({
           }
         }}
         className={cn(
-          "w-full rounded-md border border-amber-400 bg-black/20 px-2 py-0.5 text-center backdrop-blur-xs outline-none focus:ring-2 focus:ring-amber-400",
+          "w-full rounded-md border border-amber-400 bg-black/20 px-2 py-0.5 backdrop-blur-xs outline-none focus:ring-2 focus:ring-amber-400",
+          inlineAlignClass,
           className
         )}
-        style={style}
+        style={{
+          ...style,
+          ...(extractedAlign ? { textAlign: extractedAlign } : {}),
+        }}
       />
     );
   }
@@ -148,13 +230,27 @@ export function EditableField({
       onClick={handleClick}
       title="Buka Modal Editor Teks & Warna"
       className={cn(
-        "group/field relative inline-block cursor-pointer rounded px-1 transition-all hover:bg-amber-500/15 hover:outline-1 hover:outline-dashed hover:outline-amber-500/80",
+        "group/field relative cursor-pointer rounded px-1 transition-all hover:bg-amber-500/15 hover:outline-1 hover:outline-dashed hover:outline-amber-500/80",
+        extractedAlign ? "w-full block" : "inline-block",
+        extractedAlign === "left" && "text-left",
+        extractedAlign === "center" && "text-center",
+        extractedAlign === "right" && "text-right",
         className
       )}
-      style={style}
+      style={{
+        ...style,
+        ...(extractedAlign ? { textAlign: extractedAlign } : {}),
+      }}
     >
       {hasHtml ? (
-        <span dangerouslySetInnerHTML={{ __html: currentValue }} />
+        <span
+          className={cn(
+            extractedAlign === "left" && "text-left",
+            extractedAlign === "center" && "text-center",
+            extractedAlign === "right" && "text-right"
+          )}
+          dangerouslySetInnerHTML={{ __html: currentValue }}
+        />
       ) : (
         currentValue
       )}
@@ -180,9 +276,33 @@ export function EditableRegion({
   children,
   className,
 }: EditableRegionProps) {
-  const { editing, onOpenRegion } = useEditContext();
+  const { editing, onOpenRegion, pageBackgrounds, onOpenBackgroundModal } =
+    useEditContext();
+
+  const bgSetting = pageBackgrounds?.[region];
+  const preset = getPageBackgroundPreset(region);
+  const activeBgUrl =
+    bgSetting?.type === "custom" && bgSetting.customUrl
+      ? bgSetting.customUrl
+      : bgSetting?.type === "default"
+        ? preset.defaultBgUrl
+        : undefined;
 
   if (!editing) {
+    if (activeBgUrl) {
+      return (
+        <div className={cn("relative overflow-hidden", className)}>
+          <div
+            className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center transition-all duration-500"
+            style={{
+              backgroundImage: `url(${activeBgUrl})`,
+            }}
+          />
+          <div className="pointer-events-none absolute inset-0 z-0 bg-background/55 backdrop-blur-[0.5px]" />
+          <div className="relative z-1">{children}</div>
+        </div>
+      );
+    }
     return <div className={className}>{children}</div>;
   }
 
@@ -190,10 +310,40 @@ export function EditableRegion({
     <div
       data-region={region}
       className={cn(
-        "inv-region group/region relative transition-all hover:ring-1 hover:ring-amber-500/50",
+        "inv-region group/region relative overflow-hidden transition-all hover:ring-1 hover:ring-amber-500/50",
         className
       )}
     >
+      {/* Background layer jika aktif */}
+      {activeBgUrl ? (
+        <>
+          <div
+            className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center transition-all duration-500"
+            style={{
+              backgroundImage: `url(${activeBgUrl})`,
+            }}
+          />
+          <div className="pointer-events-none absolute inset-0 z-0 bg-background/55 backdrop-blur-[0.5px]" />
+        </>
+      ) : null}
+
+      {/* Tombol Atur Background Halaman (Kiri Atas) */}
+      {onOpenBackgroundModal ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenBackgroundModal(region);
+          }}
+          className="inv-bg-pill absolute top-3 left-3 z-20 inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white/95 px-2.5 py-1 text-[11px] font-medium text-zinc-800 shadow-md backdrop-blur-md transition-transform hover:scale-105 hover:bg-white dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-200"
+          title={`Atur background halaman ${preset.pageTitle}`}
+        >
+          <ImagePlus className="size-3 text-primary" />
+          <span>Background</span>
+        </button>
+      ) : null}
+
+      {/* Tombol Edit Wilayah Konten (Kanan Atas) */}
       {onOpenRegion ? (
         <button
           type="button"
@@ -207,7 +357,8 @@ export function EditableRegion({
           <span>{label}</span>
         </button>
       ) : null}
-      {children}
+
+      <div className="relative z-1">{children}</div>
     </div>
   );
 }
@@ -361,6 +512,136 @@ export function GuestHintModal() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export interface EditableImageProps {
+  src: string;
+  alt: string;
+  fill?: boolean;
+  width?: number;
+  height?: number;
+  className?: string;
+  containerClassName?: string;
+  field?: string;
+  label?: string;
+  onSave?: (newUrl: string) => void;
+  priority?: boolean;
+  unoptimized?: boolean;
+}
+
+/**
+ * <EditableImage />
+ * Komponen gambar yang dapat diklik untuk diganti foto/gambarnya saat mode editing={true}.
+ * Menampilkan overlay kamera halus saat di-hover dan membuka MediaModal terpadu.
+ */
+export function EditableImage({
+  src,
+  alt,
+  fill = false,
+  width,
+  height,
+  className,
+  containerClassName,
+  field,
+  label,
+  onSave,
+  priority = false,
+  unoptimized,
+}: EditableImageProps) {
+  const { editing, getField, onPatchField, onOpenImagePicker } = useEditContext();
+  const currentSrc = field ? getField(field, src) : src;
+
+  if (!editing) {
+    if (fill) {
+      return (
+        <div className={cn("relative", fill && "h-full w-full", containerClassName)}>
+          <Image
+            src={currentSrc}
+            alt={alt}
+            fill
+            className={className}
+            priority={priority}
+            unoptimized={unoptimized || currentSrc.startsWith("data:")}
+          />
+        </div>
+      );
+    }
+    return (
+      <Image
+        src={currentSrc}
+        alt={alt}
+        width={width}
+        height={height}
+        className={className}
+        priority={priority}
+        unoptimized={unoptimized || currentSrc.startsWith("data:")}
+      />
+    );
+  }
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onOpenImagePicker) {
+      onOpenImagePicker({
+        currentUrl: currentSrc,
+        label: label || "Ganti Gambar",
+        onSelect: (newUrl) => {
+          if (onSave) onSave(newUrl);
+          if (field && onPatchField) onPatchField(field, newUrl);
+        },
+      });
+    }
+  };
+
+  return (
+    <div
+      onClick={handleClick}
+      className={cn(
+        "group/img relative cursor-pointer overflow-hidden transition-all",
+        fill && "h-full w-full",
+        "hover:ring-2 hover:ring-primary/80 hover:shadow-md",
+        containerClassName
+      )}
+      title={label ? `Klik untuk mengganti ${label}` : "Klik untuk mengganti foto/gambar"}
+    >
+      {fill ? (
+        <Image
+          src={currentSrc}
+          alt={alt}
+          fill
+          className={cn(
+            "transition-transform duration-300 group-hover/img:scale-105",
+            className
+          )}
+          priority={priority}
+          unoptimized={unoptimized || currentSrc.startsWith("data:")}
+        />
+      ) : (
+        <Image
+          src={currentSrc}
+          alt={alt}
+          width={width}
+          height={height}
+          className={cn(
+            "transition-transform duration-300 group-hover/img:scale-105",
+            className
+          )}
+          priority={priority}
+          unoptimized={unoptimized || currentSrc.startsWith("data:")}
+        />
+      )}
+
+      {/* Overlay Kamera Edit Saat Hover */}
+      <div className="absolute inset-0 bg-black/45 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-white z-10 pointer-events-none">
+        <div className="flex size-7 items-center justify-center rounded-full bg-white/25 backdrop-blur-xs text-white mb-1 shadow">
+          <Camera className="size-3.5" />
+        </div>
+        <span className="text-[10px] font-semibold text-center leading-tight drop-shadow-sm px-1 line-clamp-1">
+          {label ? `Ganti ${label}` : "Ganti Foto"}
+        </span>
+      </div>
+    </div>
   );
 }
 

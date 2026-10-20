@@ -38,6 +38,7 @@ import {
   TabsTrigger,
 } from "@senara/ui/components/tabs";
 import { Textarea } from "@senara/ui/components/textarea";
+import { cn } from "@senara/ui/lib/utils";
 
 // Palet warna kurasi elegan untuk undangan pernikahan & pesta
 const COLOR_PRESETS = [
@@ -75,7 +76,7 @@ export function TextEditorModal({
 }: TextEditorModalProps) {
   const resolvedField = field || fieldName || "text";
   const resolvedLabel = label || fieldLabel || "Teks";
-  const [content, setContent] = useState<string>(initialValue);
+  const [plainText, setPlainText] = useState<string>("");
   const [selectedColor, setSelectedColor] = useState<string>("#1e293b");
   const [textAlign, setTextAlign] = useState<"left" | "center" | "right">(
     "center"
@@ -91,7 +92,8 @@ export function TextEditorModal({
   // Ekstrak warna dan teks polos jika ada tag span style
   useEffect(() => {
     if (!open) return;
-    setContent(initialValue);
+    const stripped = initialValue.replace(/<[^>]*>?/gm, "");
+    setPlainText(stripped);
 
     // Deteksi jika initialValue memuat warna
     const colorMatch = initialValue.match(/color:\s*([^;"'>]+)/i);
@@ -117,17 +119,14 @@ export function TextEditorModal({
       setTextAlign("left");
     else if (/text-right|text-align:\s*right/i.test(initialValue))
       setTextAlign("right");
+    else if (/text-center|text-align:\s*center/i.test(initialValue))
+      setTextAlign("center");
     else setTextAlign("center");
   }, [initialValue, open]);
 
-  // Hapus tag HTML pembungkus untuk input teks bersih
-  const rawText = useMemo(() => {
-    return content.replace(/<[^>]*>?/gm, "").trim();
-  }, [content]);
-
   // Generate output HTML berformat
   const formattedHtml = useMemo(() => {
-    let result = rawText || initialValue;
+    let result = plainText || initialValue.replace(/<[^>]*>?/gm, "");
 
     if (isBold) result = `<strong>${result}</strong>`;
     if (isItalic) result = `<em>${result}</em>`;
@@ -138,21 +137,20 @@ export function TextEditorModal({
     if (selectedColor && selectedColor !== "#1e293b") {
       styleParts.push(`color: ${selectedColor}`);
     }
-    if (textAlign !== "center") {
-      styleParts.push(`text-align: ${textAlign}`);
-    }
+    // Wajib sertakan text-align agar format perataan teks tersimpan dan diterapkan
+    styleParts.push(`text-align: ${textAlign}`);
 
     if (styleParts.length > 0) {
       result = `<span style="${styleParts.join("; ")}">${result}</span>`;
     }
 
-    if (headingLevel === "h1") result = `<h1>${result}</h1>`;
-    else if (headingLevel === "h2") result = `<h2>${result}</h2>`;
-    else if (headingLevel === "h3") result = `<h3>${result}</h3>`;
+    if (headingLevel === "h1") result = `<h1 style="text-align: ${textAlign}">${result}</h1>`;
+    else if (headingLevel === "h2") result = `<h2 style="text-align: ${textAlign}">${result}</h2>`;
+    else if (headingLevel === "h3") result = `<h3 style="text-align: ${textAlign}">${result}</h3>`;
 
     return result;
   }, [
-    rawText,
+    plainText,
     initialValue,
     isBold,
     isItalic,
@@ -169,7 +167,7 @@ export function TextEditorModal({
   };
 
   const handleReset = () => {
-    setContent(initialValue.replace(/<[^>]*>?/gm, ""));
+    setPlainText(initialValue.replace(/<[^>]*>?/gm, ""));
     setSelectedColor("#1e293b");
     setTextAlign("center");
     setIsBold(false);
@@ -181,7 +179,7 @@ export function TextEditorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-x-hidden overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
@@ -420,10 +418,26 @@ export function TextEditorModal({
               <Label className="text-xs font-semibold">Isi Teks</Label>
               <Textarea
                 rows={4}
-                value={rawText}
-                onChange={(e) => setContent(e.target.value)}
+                value={plainText}
+                onChange={(e) => setPlainText(e.target.value)}
                 placeholder="Ketik teks undangan di sini..."
-                className="text-xs leading-relaxed"
+                className={cn(
+                  "text-xs leading-relaxed transition-all",
+                  textAlign === "center" && "text-center",
+                  textAlign === "right" && "text-right",
+                  textAlign === "left" && "text-left",
+                  isBold && "font-bold",
+                  isItalic && "italic",
+                  isUnderline && "underline",
+                  isStrike && "line-through",
+                  headingLevel === "h1" && "text-lg font-bold",
+                  headingLevel === "h2" && "text-base font-semibold",
+                  headingLevel === "h3" && "text-sm font-semibold"
+                )}
+                style={{
+                  textAlign,
+                  color: selectedColor,
+                }}
               />
             </div>
           </TabsContent>
@@ -443,7 +457,7 @@ export function TextEditorModal({
                 }}
               >
                 <div
-                  className={`font-serif leading-relaxed ${
+                  className={`font-serif leading-relaxed break-words ${
                     headingLevel === "h1"
                       ? "text-2xl font-bold sm:text-3xl"
                       : headingLevel === "h2"
@@ -455,7 +469,7 @@ export function TextEditorModal({
                     isUnderline ? "underline" : ""
                   } ${isStrike ? "line-through" : ""}`}
                 >
-                  {rawText || "Pratinjau Teks Kosong"}
+                  {plainText || "Pratinjau Teks Kosong"}
                 </div>
               </div>
             </div>

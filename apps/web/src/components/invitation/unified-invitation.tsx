@@ -78,10 +78,17 @@ export function UnifiedInvitation({
   showCoverGateInitially = false,
   fields = {},
   onPatchField,
+  onPatchFields,
+  onEventDateChange,
   onOpenRegion,
   onToggleSection,
   onOpenCustomSlot,
+  onOpenLayoutLibrary,
+  onOpenBackgroundModal,
+  onEditCustomItem,
   onOpenTextEditor,
+  onOpenImagePicker,
+  onUpdateGalleries,
 }: UnifiedInvitationProps) {
   const preset = resolveTemplatePreset(templateSlug);
   const [isCoverGateOpen, setIsCoverGateOpen] = useState(
@@ -122,6 +129,8 @@ export function UnifiedInvitation({
           items={customContents as CustomContentItemData[]}
           themeConfig={themeConfig}
           onOpenSlotModal={onOpenCustomSlot}
+          onOpenLayoutLibrary={onOpenLayoutLibrary}
+          onEditItem={onEditCustomItem}
         />
       );
     }
@@ -143,8 +152,14 @@ export function UnifiedInvitation({
       guestName={guestName}
       fields={fields}
       onPatchField={onPatchField}
+      onPatchFields={onPatchFields}
+      onEventDateChange={onEventDateChange}
       onOpenRegion={onOpenRegion}
       onOpenTextEditor={onOpenTextEditor}
+      onOpenImagePicker={onOpenImagePicker}
+      onUpdateGalleries={onUpdateGalleries}
+      pageBackgrounds={themeConfig?.pageBackgrounds}
+      onOpenBackgroundModal={onOpenBackgroundModal}
       isSectionVisible={isSectionVisible}
       onToggleSection={onToggleSection}
     >
