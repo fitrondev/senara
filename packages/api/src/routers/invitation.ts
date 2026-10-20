@@ -511,17 +511,46 @@ export const invitationRouter = router({
         : [];
 
       const templatePreset = INITIAL_TEMPLATES.find((t) => t.slug === template.slug);
-      const defaultSections = templatePreset?.defaultSections ?? [
-        { sectionKey: "hero", title: "Sampul", sortOrder: 0, isVisible: true, isLocked: true },
-        { sectionKey: "quote", title: "Untaian Doa", sortOrder: 1, isVisible: true, isLocked: false },
-        { sectionKey: "couple", title: "Mempelai", sortOrder: 2, isVisible: true, isLocked: true },
-        { sectionKey: "event", title: "Rangkaian Acara", sortOrder: 3, isVisible: true, isLocked: false },
-        { sectionKey: "love-story", title: "Cerita Cinta", sortOrder: 4, isVisible: true, isLocked: false },
-        { sectionKey: "gallery", title: "Galeri Foto", sortOrder: 5, isVisible: true, isLocked: false },
-        { sectionKey: "gift", title: "Amplop Digital", sortOrder: 6, isVisible: true, isLocked: false },
-        { sectionKey: "rsvp", title: "Buku Tamu & RSVP", sortOrder: 7, isVisible: true, isLocked: false },
-        { sectionKey: "closing", title: "Penutup", sortOrder: 8, isVisible: true, isLocked: true },
-      ];
+      const rawSections =
+        (Array.isArray(template.defaultSections) && template.defaultSections.length > 0
+          ? (template.defaultSections as Array<{
+              sectionKey: string;
+              title?: string;
+              sortOrder?: number;
+              isVisible?: boolean;
+              isLocked?: boolean;
+            }>)
+          : null) ??
+        templatePreset?.defaultSections ?? [
+          { sectionKey: "hero", title: "Sampul", sortOrder: 0, isVisible: true, isLocked: true },
+          { sectionKey: "quote", title: "Untaian Doa", sortOrder: 1, isVisible: true, isLocked: false },
+          { sectionKey: "couple", title: "Mempelai", sortOrder: 2, isVisible: true, isLocked: true },
+          { sectionKey: "event", title: "Rangkaian Acara", sortOrder: 3, isVisible: true, isLocked: false },
+          { sectionKey: "love-story", title: "Cerita Cinta", sortOrder: 4, isVisible: true, isLocked: false },
+          { sectionKey: "gallery", title: "Galeri Foto", sortOrder: 5, isVisible: true, isLocked: false },
+          { sectionKey: "gift", title: "Amplop Digital", sortOrder: 6, isVisible: true, isLocked: false },
+          { sectionKey: "rsvp", title: "Buku Tamu & RSVP", sortOrder: 7, isVisible: true, isLocked: false },
+          { sectionKey: "closing", title: "Penutup", sortOrder: 8, isVisible: true, isLocked: true },
+        ];
+
+      const initialTheme = {
+        ...((template.themeConfig as Record<string, unknown>) || {}),
+        fields: {
+          ...(((template.themeConfig as Record<string, unknown>)?.fields as Record<string, string>) || {}),
+          ...((template.defaultFields as Record<string, string>) || {}),
+          title: input.title,
+        },
+      };
+
+      const customContentsList = Array.isArray(template.defaultCustomContents)
+        ? (template.defaultCustomContents as Array<{
+            slotId: string;
+            type: "TITLE" | "TEXT" | "PHOTO" | "VIDEO" | "BUTTON" | "LINK" | "YOUTUBE" | "MAP";
+            content: Record<string, unknown>;
+            sortOrder?: number;
+            isVisible?: boolean;
+          }>)
+        : [];
 
       return ctx.db.invitation.create({
         data: {
@@ -534,15 +563,29 @@ export const invitationRouter = router({
           publishedAt,
           packageTier,
           enabledAddons: enabledAddons as unknown as Prisma.InputJsonValue,
+          themeConfig: initialTheme as unknown as Prisma.InputJsonValue,
           sections: {
-            create: defaultSections.map((s) => ({
+            create: rawSections.map((s, idx) => ({
               sectionKey: s.sectionKey,
-              title: s.title,
-              sortOrder: s.sortOrder,
-              isVisible: s.isVisible,
-              isLocked: s.isLocked,
+              title: s.title ?? s.sectionKey,
+              sortOrder: s.sortOrder ?? idx,
+              isVisible: s.isVisible ?? true,
+              isLocked: s.isLocked ?? false,
             })),
           },
+          ...(customContentsList.length > 0
+            ? {
+                customContents: {
+                  create: customContentsList.map((c, idx) => ({
+                    slotId: c.slotId,
+                    type: c.type,
+                    sortOrder: c.sortOrder ?? idx,
+                    content: c.content as Prisma.InputJsonValue,
+                    isVisible: c.isVisible ?? true,
+                  })),
+                },
+              }
+            : {}),
         },
         select: {
           id: true,

@@ -72,23 +72,30 @@ model User {
 }
 
 model Template {
-  id              String             @id @default(cuid())
-  slug            String             @unique
-  name            String
-  category        String             // WEDDING, BIRTHDAY, KHITANAN, etc.
-  thumbnail       String
-  previewUrl      String?
-  isPremium       Boolean            @default(false)
-  price           Decimal            @default(0.00) @db.Decimal(10, 2)
-  isActive        Boolean            @default(true)
-  tags            Json?              // e.g. ["Aesthetic", "Simple", "Islami", "Tanpa Foto"]
-  defaultSections Json?              // Konfigurasi section bawaan template
-  invitations     Invitation[]
-  intakeLinks     ClientIntakeLink[]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  id                    String             @id @default(cuid())
+  slug                  String             @unique
+  name                  String
+  description           String?            @db.Text
+  category              String             // WEDDING, BIRTHDAY, KHITANAN, etc.
+  thumbnail             String
+  previewUrl            String?
+  isPremium             Boolean            @default(false)
+  price                 Decimal            @default(0.00) @db.Decimal(10, 2)
+  isActive              Boolean            @default(true)
+  status                String             @default("PUBLISHED") // DRAFT, PUBLISHED, ARCHIVED
+  tags                  Json?              // e.g. ["Aesthetic", "Simple", "Islami", "Tanpa Foto"]
+  defaultSections       Json?              // Konfigurasi section bawaan template
+  themeConfig           Json?              // Palet warna, tipografi, musik, background per halaman
+  defaultFields         Json?              // Placeholder field text
+  defaultCustomContents Json?              // Layout library / custom blocks bawaan
+  createdBy             String?            // Clerk user ID superadmin
+  invitations           Invitation[]
+  intakeLinks           ClientIntakeLink[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   @@index([category, isPremium, isActive])
+  @@index([status])
 }
 
 model Invitation {

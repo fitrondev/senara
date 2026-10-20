@@ -51,6 +51,7 @@ export const templateRouter = router({
       const templates = await ctx.db.template.findMany({
         where: {
           isActive: true,
+          status: "PUBLISHED",
           ...(category ? { category } : {}),
           ...(typeof isPremium === "boolean" ? { isPremium } : {}),
           ...(search ? { name: { contains: search } } : {}),

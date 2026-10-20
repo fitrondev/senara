@@ -12,6 +12,7 @@ import {
   Store,
   TicketPercent,
   Users,
+  Wand2,
 } from "lucide-react";
 
 export type RoleType = "USER" | "RESELLER" | "ADMIN" | "SUPERADMIN";
@@ -147,6 +148,11 @@ export const ROLE_NAVIGATION: Record<RoleType, RoleNavigationConfig> = {
         icon: FolderKanban,
       },
       {
+        title: "Template Generator",
+        href: "/dashboard/template-generator",
+        icon: Wand2,
+      },
+      {
         title: "Master Template",
         href: "/dashboard/master-templates",
         icon: Palette,
@@ -190,6 +196,11 @@ export const ROLE_NAVIGATION: Record<RoleType, RoleNavigationConfig> = {
         title: "Kelola Semua Undangan",
         href: "/dashboard/invitations",
         icon: FolderKanban,
+      },
+      {
+        title: "Template Generator",
+        href: "/dashboard/template-generator",
+        icon: Wand2,
       },
       {
         title: "Master Template",

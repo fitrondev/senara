@@ -9,6 +9,7 @@ import { resellerRouter } from "./reseller";
 import { rsvpRouter } from "./rsvp";
 import { sectionRouter } from "./section";
 import { templateRouter } from "./template";
+import { templateGeneratorRouter } from "./template-generator";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -30,6 +31,7 @@ export const appRouter = router({
   analytics: analyticsRouter,
   admin: adminRouter,
   reseller: resellerRouter,
+  templateGenerator: templateGeneratorRouter,
 });
 
 export type AppRouter = typeof appRouter;
